@@ -33,12 +33,24 @@
         "path": "showcase",
         "core": {
           "dependencies": [
-            "aff",
-            "effect",
-            "halogen",
-            "hylograph-halogen-ui",
-            "maybe",
-            "prelude"
+            {
+              "aff": ">=7.1.0 <8.0.0"
+            },
+            {
+              "effect": ">=4.0.0 <5.0.0"
+            },
+            {
+              "halogen": ">=7.0.0 <8.0.0"
+            },
+            {
+              "hylograph-halogen-ui": "*"
+            },
+            {
+              "maybe": ">=6.0.0 <7.0.0"
+            },
+            {
+              "prelude": ">=6.0.2 <7.0.0"
+            }
           ]
         },
         "test": {
