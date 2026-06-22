@@ -3,5 +3,4 @@
 /.spago/
 /node_modules/
 /.psci_modules/
-*.lock
 .DS_Store

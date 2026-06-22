@@ -32,6 +32,25 @@ keeps `collapsed :: Array String` in *grid* state and drives its panels from
 there. Uncontrolled "it just remembers for me" convenience is a thin stateful
 wrapper you can add later; it is never the primitive.
 
+#### Which state is controlled, and which is ephemeral?
+
+Not *every* bit of a widget's state is controlled — only the **app-meaningful**
+part. The test: would the parent ever want to read it, persist it, restore it,
+or drive it from elsewhere? If yes, it is controlled (lives in `Input`). If it
+is pure interaction transient with no meaning outside the moment, the widget
+owns it as **ephemeral** state and never surfaces it.
+
+`Select` is the worked example: its `selected` value is app-meaningful, so it is
+controlled; its dropdown-`open` flag and typeahead `query` are transient, so the
+widget keeps them in `State` and emits nothing about them. Contrast `Accordion`,
+where `open` *is* controlled — because a collapsed panel is layout the app wants
+to own, persist, and drive (Triggerfish stores it in grid state). Same word,
+"open", opposite tier, decided entirely by whether the app cares.
+
+The mirror-plus-ephemeral `State` shape (rule 2) is exactly what lets a widget
+hold both: the controlled mirror, re-synced on `receive`; and the ephemeral
+fields, which `receive` leaves untouched.
+
 ### 2. Resync on `receive` — the rule that prevents drift
 
 A controlled widget keeps a **mirror** of `Input` in its `State` (so `render`

@@ -5,12 +5,14 @@ controlled component contract**. An old-fashioned widget toolkit, on purpose:
 the value is not any single widget but that every widget obeys the same small
 rail, so the next one is predictable to author and safe to delegate.
 
-> Status: **greenfield, contract-first.** The contract is settled and has one
-> compiling reference instance (`Accordion`). The remaining widgets are
-> instances of the same skeleton.
+> Status: **v0.1, contract-settled.** Ten widgets ship — six leaf components
+> (`Accordion`, `Toggle`, `Stepper`, `Slider`, `SegmentedControl`, `Select`) and
+> four chrome functions (`Panel`, `Field`, `Modal`, `Toast`) — all compiling, all
+> on the one contract, with a type-level smoke test. The roster is the
+> beginning, not the end; see [WIDGETS.md](./WIDGETS.md).
 
-Read **[CONTRACT.md](./CONTRACT.md)** first — it is the actual product. The five
-rules in brief:
+Read **[CONTRACT.md](./CONTRACT.md)** first — it is the actual product — then
+[WIDGETS.md](./WIDGETS.md) for the roster. The five rules in brief:
 
 1. **Controlled** — the parent owns the state; `Input` carries the value,
    `Output` carries a request, the widget never mutates its own copy.
@@ -30,7 +32,7 @@ rules in brief:
 spago build
 ```
 
-## The first widget: `Accordion`
+## Worked example: `Accordion`
 
 `Accordion` is the reference instance — a controlled, self-debouncing disclosure
 header. One `Accordion` is one panel's *header* (the parent owns `open` and

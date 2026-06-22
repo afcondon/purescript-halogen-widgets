@@ -33,7 +33,7 @@ import Effect.Aff.Class (class MonadAff, liftAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
+import Hylograph.Halogen.UI.Style (sty, cls, clss)
 
 -- | Controlled input. The parent owns `open`; everything else is config.
 type Input =
@@ -123,15 +123,15 @@ render { input } =
 headerOpen :: forall m. Input -> H.ComponentHTML Action () m
 headerOpen input =
   HH.div
-    [ HP.classes [ HH.ClassName "hg-accordion", HH.ClassName "hg-accordion--open" ]
+    [ clss [ "hg-accordion", "hg-accordion--open" ]
     , HE.onClick \_ -> Toggle
     , sty $ rowBase input <> ";justify-content:space-between;padding:6px 2px;border-bottom:1px solid #00000018"
     ]
-    [ HH.span [ HP.class_ (HH.ClassName "hg-accordion__label"), sty "font-weight:600;color:#2b2b2b" ]
+    [ HH.span [ cls "hg-accordion__label", sty "font-weight:600;color:#2b2b2b" ]
         [ HH.text input.label ]
     , HH.span [ sty "display:flex;gap:8px;align-items:baseline;color:#7a7a7a;font-size:0.85em" ]
-        [ maybe (HH.text "") (\s -> HH.span [ HP.class_ (HH.ClassName "hg-accordion__sub") ] [ HH.text s ]) input.sub
-        , HH.span [ HP.class_ (HH.ClassName "hg-accordion__chevron") ] [ HH.text "▾" ]
+        [ maybe (HH.text "") (\s -> HH.span [ cls "hg-accordion__sub" ] [ HH.text s ]) input.sub
+        , HH.span [ cls "hg-accordion__chevron" ] [ HH.text "▾" ]
         ]
     ]
 
@@ -140,13 +140,13 @@ headerOpen input =
 headerCollapsed :: forall m. Input -> H.ComponentHTML Action () m
 headerCollapsed input =
   HH.div
-    [ HP.classes [ HH.ClassName "hg-accordion", HH.ClassName "hg-accordion--collapsed" ]
+    [ clss [ "hg-accordion", "hg-accordion--collapsed" ]
     , HE.onClick \_ -> Toggle
     , sty $ rowBase input
         <> ";flex:0 0 30px;min-width:30px;justify-content:center;align-items:center"
     ]
     [ HH.span
-        [ HP.class_ (HH.ClassName "hg-accordion__label")
+        [ cls "hg-accordion__label"
         , sty "transform:rotate(-90deg);white-space:nowrap;color:#2b2b2b;letter-spacing:0.08em"
         ]
         [ HH.text input.label ]
@@ -157,6 +157,3 @@ rowBase :: Input -> String
 rowBase input =
   "display:flex;font-family:system-ui,sans-serif;user-select:none;"
     <> if input.disabled then "cursor:default;opacity:0.5" else "cursor:pointer"
-
-sty :: forall r i. String -> HP.IProp r i
-sty = HP.attr (H.AttrName "style")
