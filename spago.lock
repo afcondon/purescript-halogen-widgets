@@ -28,6 +28,22 @@
         "test": {
           "dependencies": []
         }
+      },
+      "hylograph-halogen-ui-showcase": {
+        "path": "showcase",
+        "core": {
+          "dependencies": [
+            "aff",
+            "effect",
+            "halogen",
+            "hylograph-halogen-ui",
+            "maybe",
+            "prelude"
+          ]
+        },
+        "test": {
+          "dependencies": []
+        }
       }
     },
     "extra_packages": {}

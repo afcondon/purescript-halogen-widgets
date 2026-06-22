@@ -1,0 +1,9 @@
+{
+  "name": "hylograph-halogen-ui-showcase",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "bundle": "spago bundle -p hylograph-halogen-ui-showcase",
+    "serve": "python3 -m http.server 3019"
+  }
+}
