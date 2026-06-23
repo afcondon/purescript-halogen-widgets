@@ -1,5 +1,7 @@
 workspace:
-  extraPackages: {}
+  extraPackages:
+    sigil:
+      path: /Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil
 
 package:
   name: hylograph-halogen-ui

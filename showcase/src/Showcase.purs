@@ -6,15 +6,23 @@ module Showcase (component) where
 
 import Prelude
 
+import Data.Foldable (traverse_)
 import Data.Maybe (Maybe(..))
+import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
-import Effect.Aff.Class (class MonadAff)
+import Effect.Aff (delay)
+import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Type.Proxy (Proxy(..))
+import Web.DOM.Element as Element
+import Web.HTML (window) as HTML
+import Web.HTML.HTMLDocument (documentElement) as HTMLDocument
+import Web.HTML.HTMLHtmlElement (toElement) as HTMLHtmlElement
+import Web.HTML.Window (document) as Window
 
 import Hylograph.Halogen.UI.Style (sty, cls)
 import Hylograph.Halogen.UI.Accordion as Accordion
@@ -28,8 +36,18 @@ import Hylograph.Halogen.UI.Panel as Panel
 import Hylograph.Halogen.UI.Field as Field
 import Hylograph.Halogen.UI.Toast as Toast
 
-foreign import setThemeAttr :: String -> Effect Unit
-foreign import prefersDark :: Effect Boolean
+import Sigil (parseToRenderType, renderSignatureInto, renderBodyInto)
+
+-- Set `data-theme` on <html> via typed web-dom (no hand-rolled FFI).
+-- The CSS rule `:root:not([data-theme="light"])` under @media dark still
+-- applies until this attribute is first set, so OS-dark users see dark by
+-- default; clicking a theme locks in the explicit choice.
+setThemeAttr :: String -> Effect Unit
+setThemeAttr value = do
+  win <- HTML.window
+  doc <- Window.document win
+  mRoot <- HTMLDocument.documentElement doc
+  traverse_ (Element.setAttribute "data-theme" value <<< HTMLHtmlElement.toElement) mRoot
 
 data Theme = Light | Dark | Hylograph
 
@@ -130,14 +148,20 @@ component =
 
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action Slots o m Unit
 handleAction = case _ of
-  Initialize -> do
-    dark <- liftEffect prefersDark
-    let t = if dark then Dark else Light
-    H.modify_ _ { theme = t }
-    liftEffect (setThemeAttr (themeName t))
+  Initialize ->
+    -- No explicit theme on first paint: the stylesheet's
+    -- `@media (prefers-color-scheme: dark)` rule handles OS-dark users until
+    -- they pick. The Halogen state stays `Light` until a click.
+    pure unit
   SetTheme t -> do
     H.modify_ _ { theme = t }
     liftEffect (setThemeAttr (themeName t))
+    -- When entering Hylograph, the Sigil placeholders appear in the VDOM;
+    -- a 0-delay yields the event loop so Halogen finishes rendering them
+    -- before we inject.
+    when (t == Hylograph) $ void $ H.fork do
+      liftAff (delay (Milliseconds 0.0))
+      liftEffect renderContractSigils
   AccToggled o -> H.modify_ _ { accordionOpen = o }
   TogChanged v -> H.modify_ _ { toggleOn = v }
   StepChanged v -> H.modify_ _ { stepper = v }
@@ -154,6 +178,8 @@ render st =
   HH.div_
     [ styleTag
     , siteHeader st.theme
+    -- Sigil-typeset contract is Hylograph-only: this mode promises refinement.
+    , if st.theme == Hylograph then sigilSpike else HH.text ""
     , HH.div [ cls "page" ]
         [ navColumn
         , HH.main [ cls "main" ] (stories st)
@@ -355,6 +381,29 @@ modalLayer st =
 styleTag :: forall m. H.ComponentHTML Action Slots m
 styleTag = HH.element (HH.ElemName "style") [] [ HH.text globalCss ]
 
+-- Hylograph-mode refinement: typeset the actual contract surface (Toggle, here
+-- as a spike) with Sigil. The placeholders live in the VDOM only when
+-- theme == Hylograph; Sigil's _renderInto fills them via querySelector.
+sigilSpike :: forall m. H.ComponentHTML Action Slots m
+sigilSpike =
+  HH.section [ cls "sigil-spike" ]
+    [ HH.div [ cls "sigil-spike__label" ]
+        [ HH.text "The contract, typeset by Sigil — Toggle" ]
+    , HH.div [ HP.id "sig-toggle-component", cls "sigil-spike__line" ] []
+    , HH.div [ HP.id "sig-toggle-input", cls "sigil-spike__line" ] []
+    ]
+
+-- Sigil's FFI takes a querySelector (so IDs need the `#` prefix).
+renderContractSigils :: Effect Unit
+renderContractSigils = do
+  case parseToRenderType "forall m. MonadAff m => Component Query Input Output m" of
+    Just ast -> renderSignatureInto "#sig-toggle-component"
+      { name: "component", ast, typeParams: [], className: Nothing }
+    Nothing -> pure unit
+  case parseToRenderType "Record ( value :: Boolean, label :: Maybe String, disabled :: Boolean )" of
+    Just ast -> renderBodyInto "#sig-toggle-input" { ast }
+    Nothing -> pure unit
+
 --------------------------------------------------------------------------------
 -- Code snippets (the "tell")
 --------------------------------------------------------------------------------
@@ -460,6 +509,9 @@ a { color: inherit; }
 .site-header__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .site-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
 .site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
+.sigil-spike { max-width: 1100px; margin: 0 auto; padding: 24px 32px; border-bottom: 1px solid var(--hg-line); }
+.sigil-spike__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--hg-ink-soft); margin-bottom: 14px; }
+.sigil-spike .sig-full { font-size: 15px; }
 .page { display: grid; grid-template-columns: 200px 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
 .nav { position: sticky; top: 0; align-self: start; padding: 40px 0 40px 32px; }
 .nav-group { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;

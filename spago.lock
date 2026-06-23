@@ -50,6 +50,9 @@
             },
             {
               "prelude": ">=6.0.2 <7.0.0"
+            },
+            {
+              "sigil": "*"
             }
           ]
         },
@@ -58,7 +61,11 @@
         }
       }
     },
-    "extra_packages": {}
+    "extra_packages": {
+      "sigil": {
+        "path": "/Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil"
+      }
+    }
   },
   "packages": {
     "aff": {
@@ -568,6 +575,39 @@
         "prelude"
       ]
     },
+    "language-cst-parser": {
+      "type": "registry",
+      "version": "0.14.1",
+      "integrity": "sha256-tnue0oM2/EmyNJmLoJDnmUDfinKLJHi2fcSGt7d6ewU=",
+      "dependencies": [
+        "arrays",
+        "const",
+        "control",
+        "either",
+        "enums",
+        "foldable-traversable",
+        "free",
+        "functions",
+        "functors",
+        "identity",
+        "integers",
+        "lazy",
+        "lists",
+        "maybe",
+        "newtype",
+        "numbers",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "st",
+        "strings",
+        "transformers",
+        "tuples",
+        "typelevel-prelude",
+        "unfoldable",
+        "unsafe-coerce"
+      ]
+    },
     "lazy": {
       "type": "registry",
       "version": "6.0.0",
@@ -750,6 +790,23 @@
       "integrity": "sha256-EJrxtKt5xC7TYjBZrSBO/J7Aw3DmtilYjt4olpAXWVc=",
       "dependencies": [
         "unsafe-coerce"
+      ]
+    },
+    "sigil": {
+      "type": "local",
+      "path": "/Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil",
+      "dependencies": [
+        "arrays",
+        "effect",
+        "integers",
+        "language-cst-parser",
+        "maybe",
+        "ordered-collections",
+        "prelude",
+        "strings",
+        "tuples",
+        "unsafe-coerce",
+        "web-dom"
       ]
     },
     "st": {

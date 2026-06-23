@@ -11,3 +11,4 @@ package:
     - hylograph-halogen-ui: "*"
     - maybe: ">=6.0.0 <7.0.0"
     - prelude: ">=6.0.2 <7.0.0"
+    - sigil: "*"
