@@ -6,7 +6,9 @@ module Showcase (component) where
 
 import Prelude
 
+import Data.Array (find, mapMaybe, mapWithIndex)
 import Data.Foldable (traverse_)
+import Data.FoldableWithIndex (forWithIndex_)
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
@@ -36,7 +38,12 @@ import Hylograph.Halogen.UI.Panel as Panel
 import Hylograph.Halogen.UI.Field as Field
 import Hylograph.Halogen.UI.Toast as Toast
 
-import Sigil (parseToRenderType, renderSignatureInto, renderBodyInto)
+import Sigil
+  ( parseToRenderType
+  , renderSignatureInto
+  , renderDataDeclInto
+  , renderTypeSynonymInto
+  )
 
 -- Set `data-theme` on <html> via typed web-dom (no hand-rolled FFI).
 -- The CSS rule `:root:not([data-theme="light"])` under @media dark still
@@ -161,7 +168,7 @@ handleAction = case _ of
     -- before we inject.
     when (t == Hylograph) $ void $ H.fork do
       liftAff (delay (Milliseconds 0.0))
-      liftEffect renderContractSigils
+      liftEffect renderAllContracts
   AccToggled o -> H.modify_ _ { accordionOpen = o }
   TogChanged v -> H.modify_ _ { toggleOn = v }
   StepChanged v -> H.modify_ _ { stepper = v }
@@ -178,8 +185,6 @@ render st =
   HH.div_
     [ styleTag
     , siteHeader st.theme
-    -- Sigil-typeset contract is Hylograph-only: this mode promises refinement.
-    , if st.theme == Hylograph then sigilSpike else HH.text ""
     , HH.div [ cls "page" ]
         [ navColumn
         , HH.main [ cls "main" ] (stories st)
@@ -232,21 +237,30 @@ navLink anchor label =
 -- | side by side.
 story
   :: forall m
-   . { anchor :: String, title :: String, tier :: String, blurb :: String, code :: String }
+   . Theme
+  -> { anchor :: String, title :: String, tier :: String, blurb :: String, code :: String }
   -> H.ComponentHTML Action Slots m
   -> H.ComponentHTML Action Slots m
-story meta demo =
+story theme meta demo =
   HH.section [ HP.id meta.anchor, cls "story" ]
-    [ HH.div [ cls "story-head" ]
-        [ HH.h2_ [ HH.text meta.title ]
-        , HH.span [ cls "tier" ] [ HH.text meta.tier ]
-        ]
-    , HH.p [ cls "blurb" ] [ HH.text meta.blurb ]
-    , HH.div [ cls "story-grid" ]
-        [ HH.div [ cls "stage" ] [ demo ]
-        , HH.pre [ cls "code" ] [ HH.code_ [ HH.text meta.code ] ]
-        ]
-    ]
+    ( [ HH.div [ cls "story-head" ]
+          [ HH.h2_ [ HH.text meta.title ]
+          , HH.span [ cls "tier" ] [ HH.text meta.tier ]
+          ]
+      , HH.p [ cls "blurb" ] [ HH.text meta.blurb ]
+      ]
+      -- The typeset contract appears only in Hylograph mode; this mode promises
+      -- refinement and gives you something the others don't.
+      <> (case theme, findContract meta.anchor of
+            Hylograph, Just c -> [ contractPlaceholders c ]
+            _, _ -> [])
+      <>
+      [ HH.div [ cls "story-grid" ]
+          [ HH.div [ cls "stage" ] [ demo ]
+          , HH.pre [ cls "code" ] [ HH.code_ [ HH.text meta.code ] ]
+          ]
+      ]
+    )
 
 btn :: forall w i. i -> String -> HH.HTML w i
 btn act label =
@@ -259,7 +273,7 @@ btn act label =
 
 stories :: forall m. MonadAff m => State -> Array (H.ComponentHTML Action Slots m)
 stories st =
-  [ story
+  [ story st.theme
       { anchor: "accordion", title: "Accordion", tier: "leaf · controlled-header"
       , blurb: "A controlled disclosure header with a self-debounced toggle. The parent owns `open` and renders the body itself."
       , code: accordionCode }
@@ -273,7 +287,7 @@ stories st =
               else HH.text ""
           ]
       )
-  , story
+  , story st.theme
       { anchor: "toggle", title: "Toggle", tier: "leaf · controlled"
       , blurb: "The minimal instance of the contract — no ephemeral state at all. The parent owns `value`."
       , code: toggleCode }
@@ -281,7 +295,7 @@ stories st =
           ((Toggle.defaultInput st.toggleOn) { label = Just (if st.toggleOn then "Enabled" else "Disabled") })
           (\(Toggle.Changed v) -> TogChanged v)
       )
-  , story
+  , story st.theme
       { anchor: "stepper", title: "Stepper", tier: "leaf · controlled"
       , blurb: "A clamped integer stepper; the arrows disable at the bounds."
       , code: stepperCode }
@@ -289,7 +303,7 @@ stories st =
           ((Stepper.defaultInput st.stepper) { min = 0, max = 12 })
           (\(Stepper.Changed v) -> StepChanged v)
       )
-  , story
+  , story st.theme
       { anchor: "slider", title: "Slider", tier: "leaf · controlled · debounced"
       , blurb: "A range slider, debounced inside the widget because a drag floods input events. The value below updates as the parent honours each request."
       , code: sliderCode }
@@ -301,7 +315,7 @@ stories st =
               [ HH.text ("value: " <> show st.slider) ]
           ]
       )
-  , story
+  , story st.theme
       { anchor: "segmented", title: "SegmentedControl", tier: "leaf · controlled-header"
       , blurb: "A tab/segment selector. The parent owns `active` and renders the corresponding pane — the control is only the selector."
       , code: segmentedCode }
@@ -317,7 +331,7 @@ stories st =
               [ HH.text ("Parent renders pane: " <> st.segment) ]
           ]
       )
-  , story
+  , story st.theme
       { anchor: "select", title: "Select", tier: "leaf · controlled + ephemeral"
       , blurb: "A typeahead dropdown. `selected` is controlled (app-meaningful); `open` and the filter `query` are ephemeral interaction state the widget owns."
       , code: selectCode }
@@ -330,7 +344,7 @@ stories st =
               ]) { selected = st.selected, searchable = true, placeholder = "Choose a module…" })
           (\(Select.Selected v) -> SelSelected v)
       )
-  , story
+  , story st.theme
       { anchor: "panel", title: "Panel", tier: "chrome function"
       , blurb: "A titled surface wrapping caller content. A render function, polymorphic in your action — so the body threads straight through."
       , code: panelCode }
@@ -339,7 +353,7 @@ stories st =
               [ HH.text "Any caller content sits inside the titled surface." ]
           ]
       )
-  , story
+  , story st.theme
       { anchor: "field", title: "Field", tier: "chrome function"
       , blurb: "A labelled form row: label, control, optional hint."
       , code: fieldCode }
@@ -350,12 +364,12 @@ stories st =
               ]
           )
       )
-  , story
+  , story st.theme
       { anchor: "modal", title: "Modal", tier: "chrome function"
       , blurb: "An overlay dialog. The body and the `onClose` action thread through the chrome function; it renders nothing when closed."
       , code: modalCode }
       ( btn OpenModal "Open dialog" )
-  , story
+  , story st.theme
       { anchor: "toast", title: "Toast", tier: "chrome function"
       , blurb: "A notification banner, coloured by `Variant`, with an optional dismiss that raises your action."
       , code: toastCode }
@@ -381,28 +395,140 @@ modalLayer st =
 styleTag :: forall m. H.ComponentHTML Action Slots m
 styleTag = HH.element (HH.ElemName "style") [] [ HH.text globalCss ]
 
--- Hylograph-mode refinement: typeset the actual contract surface (Toggle, here
--- as a spike) with Sigil. The placeholders live in the VDOM only when
--- theme == Hylograph; Sigil's _renderInto fills them via querySelector.
-sigilSpike :: forall m. H.ComponentHTML Action Slots m
-sigilSpike =
-  HH.section [ cls "sigil-spike" ]
-    [ HH.div [ cls "sigil-spike__label" ]
-        [ HH.text "The contract, typeset by Sigil — Toggle" ]
-    , HH.div [ HP.id "sig-toggle-component", cls "sigil-spike__line" ] []
-    , HH.div [ HP.id "sig-toggle-input", cls "sigil-spike__line" ] []
-    ]
+--------------------------------------------------------------------------------
+-- Hylograph-mode refinement: each widget's typed contract surface, typeset by
+-- Sigil. Placeholder divs live in the VDOM only when theme == Hylograph;
+-- Sigil's _renderInto fills them via querySelector after the next paint.
+--------------------------------------------------------------------------------
 
--- Sigil's FFI takes a querySelector (so IDs need the `#` prefix).
-renderContractSigils :: Effect Unit
-renderContractSigils = do
-  case parseToRenderType "forall m. MonadAff m => Component Query Input Output m" of
-    Just ast -> renderSignatureInto "#sig-toggle-component"
-      { name: "component", ast, typeParams: [], className: Nothing }
-    Nothing -> pure unit
-  case parseToRenderType "Record ( value :: Boolean, label :: Maybe String, disabled :: Boolean )" of
-    Just ast -> renderBodyInto "#sig-toggle-input" { ast }
-    Nothing -> pure unit
+-- A piece of a widget's typed surface, in a form Sigil can render.
+data Fragment
+  = TypeSyn String String                                            -- name, body type
+  | DataDecl String (Array { name :: String, args :: Array String }) -- name, ctors
+  | Signature String String                                           -- name, type
+
+type Contract = { slug :: String, fragments :: Array Fragment }
+
+-- One contract per widget. The slug matches the story's anchor.
+allContracts :: Array Contract
+allContracts =
+  [ { slug: "accordion"
+    , fragments:
+        [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Toggled", args: [ "Boolean" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "toggle"
+    , fragments:
+        [ TypeSyn "Input" "Record ( value :: Boolean, label :: Maybe String, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Changed", args: [ "Boolean" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "stepper"
+    , fragments:
+        [ TypeSyn "Input" "Record ( value :: Int, min :: Int, max :: Int, step :: Int, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Changed", args: [ "Int" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "slider"
+    , fragments:
+        [ TypeSyn "Input" "Record ( value :: Number, min :: Number, max :: Number, step :: Number, debounce :: Milliseconds, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Changed", args: [ "Number" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "segmented"
+    , fragments:
+        [ TypeSyn "Segment" "Record ( key :: String, label :: String )"
+        , TypeSyn "Input" "Record ( segments :: Array Segment, active :: String, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "select"
+    , fragments:
+        [ TypeSyn "Option" "Record ( value :: String, label :: String )"
+        , TypeSyn "Input" "Record ( options :: Array Option, selected :: Maybe String, placeholder :: String, searchable :: Boolean, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "panel"
+    , fragments:
+        [ TypeSyn "PanelConfig" "Record ( title :: String, sub :: Maybe String )"
+        , Signature "panel" "forall w i. PanelConfig -> Array (HTML w i) -> HTML w i"
+        ]
+    }
+  , { slug: "field"
+    , fragments:
+        [ TypeSyn "FieldConfig" "Record ( label :: String, hint :: Maybe String )"
+        , Signature "field" "forall w i. FieldConfig -> HTML w i -> HTML w i"
+        ]
+    }
+  , { slug: "modal"
+    , fragments:
+        [ TypeSyn "ModalConfig" "forall i. Record ( open :: Boolean, title :: String, onClose :: i )"
+        , Signature "modal" "forall w i. ModalConfig i -> Array (HTML w i) -> HTML w i"
+        ]
+    }
+  , { slug: "toast"
+    , fragments:
+        [ DataDecl "Variant"
+            [ { name: "Info", args: [] }
+            , { name: "Success", args: [] }
+            , { name: "Warning", args: [] }
+            , { name: "Error", args: [] }
+            ]
+        , TypeSyn "ToastConfig" "forall i. Record ( variant :: Variant, message :: String, onDismiss :: Maybe i )"
+        , Signature "toast" "forall w i. ToastConfig i -> HTML w i"
+        ]
+    }
+  ]
+
+-- VDOM: one placeholder div per fragment, ID-stamped by slug + index.
+contractPlaceholders :: forall m. Contract -> H.ComponentHTML Action Slots m
+contractPlaceholders c =
+  HH.div [ cls "story-contract" ]
+    ( mapWithIndex
+        (\i _ ->
+          HH.div
+            [ HP.id ("sig-" <> c.slug <> "-" <> show i)
+            , cls "story-contract__frag"
+            ]
+            [])
+        c.fragments
+    )
+
+-- Inject Sigil markup into each placeholder for one widget.
+injectContract :: Contract -> Effect Unit
+injectContract c = forWithIndex_ c.fragments \i frag ->
+  let selector = "#sig-" <> c.slug <> "-" <> show i in
+  case frag of
+    TypeSyn name body -> case parseToRenderType body of
+      Just ast -> renderTypeSynonymInto selector
+        { name, typeParams: [], body: ast }
+      Nothing -> pure unit
+    DataDecl name ctors ->
+      let
+        parsedCtors = ctors <#> \c' ->
+          { name: c'.name, args: mapMaybe parseToRenderType c'.args }
+      in
+      renderDataDeclInto selector
+        { name, typeParams: [], constructors: parsedCtors, keyword: Nothing }
+    Signature name sig -> case parseToRenderType sig of
+      Just ast -> renderSignatureInto selector
+        { name, ast, typeParams: [], className: Nothing }
+      Nothing -> pure unit
+
+renderAllContracts :: Effect Unit
+renderAllContracts = traverse_ injectContract allContracts
+
+-- Look up a contract by its slug (the same string the story uses as its anchor).
+findContract :: String -> Maybe Contract
+findContract slug = find (\c -> c.slug == slug) allContracts
 
 --------------------------------------------------------------------------------
 -- Code snippets (the "tell")
@@ -509,9 +635,11 @@ a { color: inherit; }
 .site-header__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .site-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
 .site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
-.sigil-spike { max-width: 1100px; margin: 0 auto; padding: 24px 32px; border-bottom: 1px solid var(--hg-line); }
-.sigil-spike__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--hg-ink-soft); margin-bottom: 14px; }
-.sigil-spike .sig-full { font-size: 15px; }
+.story-contract { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 22px;
+  padding: 18px 20px; background: var(--hg-surface); border: 1px solid var(--hg-line);
+  border-radius: var(--hg-radius, 8px); }
+.story-contract__frag { font-size: 14px; }
+.story-contract__frag:empty { display: none; }
 .page { display: grid; grid-template-columns: 200px 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
 .nav { position: sticky; top: 0; align-self: start; padding: 40px 0 40px 32px; }
 .nav-group { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
