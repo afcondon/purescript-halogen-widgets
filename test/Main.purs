@@ -17,6 +17,7 @@ import Hylograph.Halogen.UI.Toggle as Toggle
 import Hylograph.Halogen.UI.Stepper as Stepper
 import Hylograph.Halogen.UI.Slider as Slider
 import Hylograph.Halogen.UI.Knob as Knob
+import Hylograph.Halogen.UI.DoubleKnob as DoubleKnob
 import Hylograph.Halogen.UI.SegmentedControl as Segmented
 import Hylograph.Halogen.UI.Select as Select
 import Hylograph.Halogen.UI.Modal as Modal
@@ -37,6 +38,7 @@ checks =
     && seen (Stepper.component :: H.Component Stepper.Query Stepper.Input Stepper.Output Aff)
     && seen (Slider.component :: H.Component Slider.Query Slider.Input Slider.Output Aff)
     && seen (Knob.component :: H.Component Knob.Query Knob.Input Knob.Output Aff)
+    && seen (DoubleKnob.component :: H.Component DoubleKnob.Query DoubleKnob.Input DoubleKnob.Output Aff)
     && seen (Segmented.component :: H.Component Segmented.Query Segmented.Input Segmented.Output Aff)
     && seen (Select.component :: H.Component Select.Query Select.Input Select.Output Aff)
     -- Chrome functions, applied to concrete args.
@@ -49,6 +51,7 @@ checks =
     && (Stepper.defaultInput 5).value == 5
     && (Slider.defaultInput 0.0).min == 0.0
     && (Knob.defaultInput 0.0).ticks == 0
+    && (DoubleKnob.defaultInput 0.0 0.0).outer.value == 0.0
     && (Select.defaultInput []).searchable == false
     && (Accordion.defaultInput "GENERATE").open == true
 

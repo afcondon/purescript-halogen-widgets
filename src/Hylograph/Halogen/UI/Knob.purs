@@ -30,7 +30,6 @@ import Data.Number (cos, sin, pi)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (delay)
 import Effect.Aff.Class (class MonadAff, liftAff)
-import Effect.Class (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -58,6 +57,12 @@ type Input =
   , disabled :: Boolean
   }
 
+-- A knob's value display is the parent's read-back — and *that's the value the
+-- user is watching while they turn*. So unlike Slider/Toggle, the default
+-- debounce is OFF; every drag tick gets emitted so the readout tracks the hand.
+-- Raise it deliberately for cases where downstream work per-tick is expensive
+-- (a MIDI write, an audio param ramp); the generation-counter machinery is
+-- still here for you when you want it.
 defaultInput :: Number -> Input
 defaultInput v =
   { value: v
@@ -67,7 +72,7 @@ defaultInput v =
   , color: Style.accent
   , label: Nothing
   , ticks: 0
-  , debounce: Milliseconds 60.0
+  , debounce: Milliseconds 0.0
   , disabled: false
   }
 

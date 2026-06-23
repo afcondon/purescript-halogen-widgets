@@ -33,6 +33,7 @@ import Hylograph.Halogen.UI.Toggle as Toggle
 import Hylograph.Halogen.UI.Stepper as Stepper
 import Hylograph.Halogen.UI.Slider as Slider
 import Hylograph.Halogen.UI.Knob as Knob
+import Hylograph.Halogen.UI.DoubleKnob as DoubleKnob
 import Hylograph.Halogen.UI.SegmentedControl as Segmented
 import Hylograph.Halogen.UI.Select as Select
 import Hylograph.Halogen.UI.Modal as Modal
@@ -80,6 +81,7 @@ type Slots =
   , stepper :: Stepper.Slot Unit
   , slider :: Slider.Slot Unit
   , knob :: Knob.Slot Unit
+  , doubleKnob :: DoubleKnob.Slot Unit
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
@@ -100,6 +102,9 @@ _slider = Proxy
 _knob :: Proxy "knob"
 _knob = Proxy
 
+_doubleKnob :: Proxy "doubleKnob"
+_doubleKnob = Proxy
+
 _segmented :: Proxy "segmented"
 _segmented = Proxy
 
@@ -116,6 +121,8 @@ type State =
   , stepper :: Int
   , slider :: Number
   , knob :: Number
+  , doubleOuter :: Number
+  , doubleInner :: Number
   , segment :: String
   , selected :: Maybe String
   , modalOpen :: Boolean
@@ -130,6 +137,8 @@ initialState =
   , stepper: 3
   , slider: 40.0
   , knob: 65.0
+  , doubleOuter: 70.0
+  , doubleInner: 30.0
   , segment: "list"
   , selected: Nothing
   , modalOpen: false
@@ -144,6 +153,8 @@ data Action
   | StepChanged Int
   | SldChanged Number
   | KnobChanged Number
+  | DoubleOuterChanged Number
+  | DoubleInnerChanged Number
   | SegSelected String
   | SelSelected String
   | OpenModal
@@ -183,6 +194,8 @@ handleAction = case _ of
   StepChanged v -> H.modify_ _ { stepper = v }
   SldChanged v -> H.modify_ _ { slider = v }
   KnobChanged v -> H.modify_ _ { knob = v }
+  DoubleOuterChanged v -> H.modify_ _ { doubleOuter = v }
+  DoubleInnerChanged v -> H.modify_ _ { doubleInner = v }
   SegSelected k -> H.modify_ _ { segment = k }
   SelSelected v -> H.modify_ _ { selected = Just v }
   OpenModal -> H.modify_ _ { modalOpen = true }
@@ -231,6 +244,7 @@ navColumn =
     , navLink "stepper" "Stepper"
     , navLink "slider" "Slider"
     , navLink "knob" "Knob"
+    , navLink "doubleknob" "DoubleKnob"
     , navLink "segmented" "Segmented"
     , navLink "select" "Select"
     , HH.div [ cls "nav-group" ] [ HH.text "Chrome functions" ]
@@ -339,6 +353,23 @@ stories st =
               (\(Knob.Changed v) -> KnobChanged v)
           , HH.span [ sty "font:12px 'SF Mono',Menlo,monospace;color:#5a564b" ]
               [ HH.text ("value: " <> show (Int.round st.knob)) ]
+          ]
+      )
+  , story st.theme
+      { anchor: "doubleknob", title: "DoubleKnob", tier: "leaf · controlled · two layers · SVG"
+      , blurb: "The Strymon / Chase Bliss pattern: one physical knob hosts two parameters. Outer ring + inner ring, each with its own drag and its own emitted value. `Output` is a sum tagged by layer."
+      , code: doubleKnobCode }
+      ( HH.div [ sty "display:flex;align-items:center;gap:24px" ]
+          [ HH.slot _doubleKnob unit DoubleKnob.component
+              ((DoubleKnob.defaultInput st.doubleOuter st.doubleInner)
+                { label = Just "RATE  ·  DEPTH" })
+              ( case _ of
+                  DoubleKnob.OuterChanged v -> DoubleOuterChanged v
+                  DoubleKnob.InnerChanged v -> DoubleInnerChanged v
+              )
+          , HH.span [ sty "font:12px 'SF Mono',Menlo,monospace;color:#5a564b" ]
+              [ HH.text $ "rate: " <> show (Int.round st.doubleOuter)
+                  <> "   depth: " <> show (Int.round st.doubleInner) ]
           ]
       )
   , story st.theme
@@ -470,6 +501,17 @@ allContracts =
     , fragments:
         [ TypeSyn "Input" "Record ( value :: Number, min :: Number, max :: Number, size :: Number, color :: String, label :: Maybe String, ticks :: Int, debounce :: Milliseconds, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Changed", args: [ "Number" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "doubleknob"
+    , fragments:
+        [ TypeSyn "Layer" "Record ( value :: Number, min :: Number, max :: Number, color :: String )"
+        , TypeSyn "Input" "Record ( outer :: Layer, inner :: Layer, size :: Number, label :: Maybe String, debounce :: Milliseconds, disabled :: Boolean )"
+        , DataDecl "Output"
+            [ { name: "OuterChanged", args: [ "Number" ] }
+            , { name: "InnerChanged", args: [ "Number" ] }
+            ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
     }
@@ -612,6 +654,17 @@ HH.slot _knob unit Knob.component
     , ticks = 0          -- > 1 draws detent marks
     }
   (\(Knob.Changed v) -> KnobChanged v)"""
+
+doubleKnobCode :: String
+doubleKnobCode =
+  """-- one widget, two parameters; Output tagged by layer
+HH.slot _doubleKnob unit DoubleKnob.component
+  (DoubleKnob.defaultInput state.rate state.depth)
+    { label = Just "RATE · DEPTH" }
+  ( case _ of
+      DoubleKnob.OuterChanged v -> DoubleOuterChanged v
+      DoubleKnob.InnerChanged v -> DoubleInnerChanged v
+  )"""
 
 segmentedCode :: String
 segmentedCode =
