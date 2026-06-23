@@ -77,7 +77,7 @@ render :: forall m. State -> H.ComponentHTML Action () m
 render { input } =
   HH.div
     [ cls "hg-segmented"
-    , sty $ "display:inline-flex;border:1px solid " <> line <> ";border-radius:7px;overflow:hidden;"
+    , sty $ "display:inline-flex;border:1px solid " <> line <> ";border-radius:var(--hg-radius,7px);overflow:hidden;"
         <> "font-family:" <> uiFont <> ";"
         <> (if input.disabled then "opacity:0.5" else "")
     ]

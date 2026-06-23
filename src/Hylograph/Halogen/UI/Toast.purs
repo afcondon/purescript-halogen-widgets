@@ -36,7 +36,7 @@ toast :: forall w i. ToastConfig i -> HH.HTML w i
 toast config =
   HH.div
     [ cls "hg-toast"
-    , sty $ "display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;"
+    , sty $ "display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--hg-radius,8px);"
         <> "font-family:" <> uiFont <> ";font-size:13px;color:#fff;"
         <> "box-shadow:0 4px 14px #0000002a;background:" <> variantColor config.variant
     ]

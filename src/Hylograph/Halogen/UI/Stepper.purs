@@ -94,7 +94,7 @@ render { input } =
       [ cls "hg-stepper__btn"
       , HE.onClick \_ -> act
       , HP.disabled (input.disabled || atEnd)
-      , sty $ "width:22px;height:22px;border-radius:5px;border:1px solid #cfcabb;"
+      , sty $ "width:22px;height:22px;border-radius:var(--hg-radius,5px);border:1px solid #cfcabb;"
           <> "background:" <> surfaceAlt <> ";color:" <> inkSoft <> ";font-size:13px;line-height:1;"
           <> "border-color:" <> line <> ";"
           <> (if input.disabled || atEnd then "opacity:0.4;cursor:default" else "cursor:pointer")

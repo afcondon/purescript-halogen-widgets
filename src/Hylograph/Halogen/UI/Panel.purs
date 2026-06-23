@@ -21,7 +21,7 @@ panel :: forall w i. PanelConfig -> Array (HH.HTML w i) -> HH.HTML w i
 panel config body =
   HH.div
     [ cls "hg-panel"
-    , sty $ "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:8px;"
+    , sty $ "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hg-radius,8px);"
         <> "overflow:hidden;font-family:" <> uiFont
     ]
     [ HH.div

@@ -32,6 +32,23 @@ Read **[CONTRACT.md](./CONTRACT.md)** first — it is the actual product — the
 spago build
 ```
 
+## Theming (light / dark)
+
+Every colour is a CSS custom property with a baked-in light fallback —
+`var(--hg-ink, #2b2b2b)`. So the widgets are **self-contained** (they render
+with the light palette even with no stylesheet) *and* **themeable**: include
+`css/hylograph-ui.css` (or just define the `--hg-*` variables yourself) and you
+get dark mode for free.
+
+```html
+<link rel="stylesheet" href="hylograph-ui.css">
+```
+
+Dark mode follows the OS (`prefers-color-scheme`) automatically, or you can force
+it by setting `data-theme="light" | "dark"` on a host element (usually `<html>`).
+No PureScript changes, no per-widget props — recolour by overriding variables.
+The showcase's header toggle does exactly this.
+
 ## Worked example: `Accordion`
 
 `Accordion` is the reference instance — a controlled, self-debouncing disclosure

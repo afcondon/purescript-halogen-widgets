@@ -33,7 +33,7 @@ import Effect.Aff.Class (class MonadAff, liftAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Hylograph.Halogen.UI.Style (sty, cls, clss)
+import Hylograph.Halogen.UI.Style (sty, cls, clss, ink, inkSoft, line)
 
 -- | Controlled input. The parent owns `open`; everything else is config.
 type Input =
@@ -125,11 +125,11 @@ headerOpen input =
   HH.div
     [ clss [ "hg-accordion", "hg-accordion--open" ]
     , HE.onClick \_ -> Toggle
-    , sty $ rowBase input <> ";justify-content:space-between;padding:6px 2px;border-bottom:1px solid #00000018"
+    , sty $ rowBase input <> ";justify-content:space-between;padding:6px 2px;border-bottom:1px solid " <> line
     ]
-    [ HH.span [ cls "hg-accordion__label", sty "font-weight:600;color:#2b2b2b" ]
+    [ HH.span [ cls "hg-accordion__label", sty $ "font-weight:600;color:" <> ink ]
         [ HH.text input.label ]
-    , HH.span [ sty "display:flex;gap:8px;align-items:baseline;color:#7a7a7a;font-size:0.85em" ]
+    , HH.span [ sty $ "display:flex;gap:8px;align-items:baseline;font-size:0.85em;color:" <> inkSoft ]
         [ maybe (HH.text "") (\s -> HH.span [ cls "hg-accordion__sub" ] [ HH.text s ]) input.sub
         , HH.span [ cls "hg-accordion__chevron" ] [ HH.text "▾" ]
         ]
@@ -147,7 +147,7 @@ headerCollapsed input =
     ]
     [ HH.span
         [ cls "hg-accordion__label"
-        , sty "transform:rotate(-90deg);white-space:nowrap;color:#2b2b2b;letter-spacing:0.08em"
+        , sty $ "transform:rotate(-90deg);white-space:nowrap;letter-spacing:0.08em;color:" <> ink
         ]
         [ HH.text input.label ]
     ]

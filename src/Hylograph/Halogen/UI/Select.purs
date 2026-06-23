@@ -121,7 +121,7 @@ render st =
       [ cls "hg-select__control"
       , HE.onClick \_ -> Toggle
       , sty $ "display:flex;align-items:center;justify-content:space-between;gap:8px;"
-          <> "padding:6px 10px;border:1px solid " <> line <> ";border-radius:6px;"
+          <> "padding:6px 10px;border:1px solid " <> line <> ";border-radius:var(--hg-radius,6px);"
           <> "background:" <> surface <> ";font-size:13px;"
           <> (if st.input.disabled then "cursor:default;" else "cursor:pointer;")
           <> "color:" <> (if isPlaceholder then inkSoft else ink)
@@ -134,7 +134,7 @@ render st =
     HH.div
       [ cls "hg-select__panel"
       , sty $ "position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;"
-          <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:6px;"
+          <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hg-radius,6px);"
           <> "box-shadow:0 6px 20px #00000022;max-height:240px;overflow:auto"
       ]
       ( (if st.input.searchable then [ searchBox ] else [])

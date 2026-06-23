@@ -7,7 +7,9 @@ module Showcase (component) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
+import Effect (Effect)
 import Effect.Aff.Class (class MonadAff)
+import Effect.Class (liftEffect)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -26,6 +28,25 @@ import Hylograph.Halogen.UI.Panel as Panel
 import Hylograph.Halogen.UI.Field as Field
 import Hylograph.Halogen.UI.Toast as Toast
 
+foreign import setThemeAttr :: String -> Effect Unit
+foreign import prefersDark :: Effect Boolean
+
+data Theme = Light | Dark | Hylograph
+
+derive instance eqTheme :: Eq Theme
+
+themeName :: Theme -> String
+themeName = case _ of
+  Light -> "light"
+  Dark -> "dark"
+  Hylograph -> "hylograph"
+
+parseTheme :: String -> Theme
+parseTheme = case _ of
+  "dark" -> Dark
+  "hylograph" -> Hylograph
+  _ -> Light
+
 type Slots =
   ( accordion :: Accordion.Slot Unit
   , toggle :: Toggle.Slot Unit
@@ -33,6 +54,7 @@ type Slots =
   , slider :: Slider.Slot Unit
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
+  , themeSwitch :: Segmented.Slot Unit
   )
 
 _accordion :: Proxy "accordion"
@@ -53,8 +75,12 @@ _segmented = Proxy
 _select :: Proxy "select"
 _select = Proxy
 
+_themeSwitch :: Proxy "themeSwitch"
+_themeSwitch = Proxy
+
 type State =
-  { accordionOpen :: Boolean
+  { theme :: Theme
+  , accordionOpen :: Boolean
   , toggleOn :: Boolean
   , stepper :: Int
   , slider :: Number
@@ -66,7 +92,8 @@ type State =
 
 initialState :: State
 initialState =
-  { accordionOpen: true
+  { theme: Light
+  , accordionOpen: true
   , toggleOn: true
   , stepper: 3
   , slider: 40.0
@@ -77,7 +104,9 @@ initialState =
   }
 
 data Action
-  = AccToggled Boolean
+  = Initialize
+  | SetTheme Theme
+  | AccToggled Boolean
   | TogChanged Boolean
   | StepChanged Int
   | SldChanged Number
@@ -93,11 +122,22 @@ component =
   H.mkComponent
     { initialState: \_ -> initialState
     , render
-    , eval: H.mkEval H.defaultEval { handleAction = handleAction }
+    , eval: H.mkEval H.defaultEval
+        { handleAction = handleAction
+        , initialize = Just Initialize
+        }
     }
 
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action Slots o m Unit
 handleAction = case _ of
+  Initialize -> do
+    dark <- liftEffect prefersDark
+    let t = if dark then Dark else Light
+    H.modify_ _ { theme = t }
+    liftEffect (setThemeAttr (themeName t))
+  SetTheme t -> do
+    H.modify_ _ { theme = t }
+    liftEffect (setThemeAttr (themeName t))
   AccToggled o -> H.modify_ _ { accordionOpen = o }
   TogChanged v -> H.modify_ _ { toggleOn = v }
   StepChanged v -> H.modify_ _ { stepper = v }
@@ -113,7 +153,7 @@ render :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 render st =
   HH.div_
     [ styleTag
-    , siteHeader
+    , siteHeader st.theme
     , HH.div [ cls "page" ]
         [ navColumn
         , HH.main [ cls "main" ] (stories st)
@@ -121,10 +161,20 @@ render st =
     , modalLayer st
     ]
 
-siteHeader :: forall m. H.ComponentHTML Action Slots m
-siteHeader =
+siteHeader :: forall m. MonadAff m => Theme -> H.ComponentHTML Action Slots m
+siteHeader theme =
   HH.header [ cls "site-header" ]
-    [ HH.h1_ [ HH.text "Hylograph Halogen UI" ]
+    [ HH.div [ cls "site-header__row" ]
+        [ HH.h1_ [ HH.text "Hylograph Halogen UI" ]
+        -- the theme switcher is itself the library's SegmentedControl
+        , HH.slot _themeSwitch unit Segmented.component
+            ((Segmented.defaultInput
+                [ { key: "light", label: "Light" }
+                , { key: "dark", label: "Dark" }
+                , { key: "hylograph", label: "Hylograph" }
+                ]) { active = themeName theme })
+            (\(Segmented.Selected k) -> SetTheme (parseTheme k))
+        ]
     , HH.p_
         [ HH.text "Reusable Halogen widgets on one controlled component contract. \
                   \Every demo below is live — and this page (the parent) owns all of \
@@ -402,30 +452,33 @@ globalCss :: String
 globalCss =
   """
 * { box-sizing: border-box; }
-body { margin: 0; background: #faf9f6; color: #2b2b2b;
-  font-family: system-ui,-apple-system,'Segoe UI',sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--hg-page-bg); color: var(--hg-ink);
+  font-family: var(--hg-font, system-ui,-apple-system,'Segoe UI',sans-serif); -webkit-font-smoothing: antialiased;
+  transition: background 200ms ease, color 200ms ease; }
 a { color: inherit; }
-.site-header { max-width: 1100px; margin: 0 auto; padding: 52px 32px 36px; border-bottom: 1px solid #e6e3dc; }
+.site-header { max-width: 1100px; margin: 0 auto; padding: 52px 32px 36px; border-bottom: 1px solid var(--hg-line); }
+.site-header__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .site-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
-.site-header p { margin: 10px 0 0; max-width: 64ch; color: #7a7a7a; font-size: 15px; line-height: 1.55; }
+.site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
 .page { display: grid; grid-template-columns: 200px 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
 .nav { position: sticky; top: 0; align-self: start; padding: 40px 0 40px 32px; }
 .nav-group { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
-  text-transform: uppercase; color: #9a958a; }
+  text-transform: uppercase; color: var(--hg-ink-soft); }
 .nav-group:first-child { margin-top: 0; }
 .nav-link { display: block; padding: 4px 0; text-decoration: none; font-size: 14px; }
-.nav-link:hover { color: #2f5fb0; }
+.nav-link:hover { color: var(--hg-accent); }
 .main { padding: 40px 32px 140px; min-width: 0; }
 .story { margin-bottom: 64px; scroll-margin-top: 24px; }
 .story-head { display: flex; align-items: baseline; gap: 12px; }
 .story-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
-.tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #9a958a; }
-.blurb { margin: 8px 0 18px; max-width: 64ch; color: #5a564b; font-size: 15px; line-height: 1.55; }
+.tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hg-ink-soft); }
+.blurb { margin: 8px 0 18px; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
 .story-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 .stage { display: flex; align-items: center; min-height: 96px; padding: 28px;
-  background: #fff; border: 1px solid #e6e3dc; border-radius: 10px; }
-pre.code { margin: 0; padding: 16px 18px; overflow: auto; background: #f4f3f0;
-  border: 1px solid #e6e3dc; border-radius: 10px;
+  background: var(--hg-surface); border: 1px solid var(--hg-line); border-radius: var(--hg-radius, 10px);
+  transition: background 200ms ease, border-color 200ms ease; }
+pre.code { margin: 0; padding: 16px 18px; overflow: auto; background: var(--hg-surface-alt);
+  border: 1px solid var(--hg-line); border-radius: var(--hg-radius, 10px); color: var(--hg-ink);
   font-family: 'SF Mono',Menlo,monospace; font-size: 12px; line-height: 1.6; }
 @media (max-width: 820px) {
   .page { grid-template-columns: 1fr; }
