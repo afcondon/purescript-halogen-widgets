@@ -9,6 +9,9 @@
               "aff": ">=7.1.0 <8.0.0"
             },
             {
+              "arrays": ">=7.3.0 <8.0.0"
+            },
+            {
               "datetime": ">=6.1.0 <7.0.0"
             },
             {
@@ -18,10 +21,31 @@
               "halogen": ">=7.0.0 <8.0.0"
             },
             {
+              "halogen-subscriptions": ">=2.0.0 <3.0.0"
+            },
+            {
+              "integers": ">=6.0.0 <7.0.0"
+            },
+            {
               "maybe": ">=6.0.0 <7.0.0"
             },
             {
+              "numbers": ">=9.0.1 <10.0.0"
+            },
+            {
               "prelude": ">=6.0.2 <7.0.0"
+            },
+            {
+              "unsafe-coerce": ">=6.0.0 <7.0.0"
+            },
+            {
+              "web-events": ">=4.0.0 <5.0.0"
+            },
+            {
+              "web-html": ">=4.1.1 <5.0.0"
+            },
+            {
+              "web-uievents": ">=4.1.0 <5.0.0"
             }
           ]
         },
@@ -1026,8 +1050,8 @@
     },
     "web-pointerevents": {
       "type": "registry",
-      "version": "2.0.0",
-      "integrity": "sha256-mQbm1V36u3It2WdYMAXtzLBJl3uRAhN4BjeZTw3LWN8=",
+      "version": "1.0.0",
+      "integrity": "sha256-0yRDDG1SPcTY/iKrqlYWien1MxGtae2d89ocTRyfa0Y=",
       "dependencies": [
         "effect",
         "maybe",
@@ -1068,8 +1092,8 @@
     },
     "web-uievents": {
       "type": "registry",
-      "version": "5.0.0",
-      "integrity": "sha256-yh9uVLIGu8wE1+jwLehtfsRfR1eyiShhIMMhBPqKybE=",
+      "version": "4.1.0",
+      "integrity": "sha256-cUha2MJLUhe7PMl/vvIGVvupIJfG1uz6RfS2MVmnMAg=",
       "dependencies": [
         "effect",
         "enums",

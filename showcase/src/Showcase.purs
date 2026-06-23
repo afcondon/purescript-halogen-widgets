@@ -7,6 +7,7 @@ module Showcase (component) where
 import Prelude
 
 import Data.Array (find, mapMaybe, mapWithIndex)
+import Data.Int as Int
 import Data.Foldable (traverse_)
 import Data.FoldableWithIndex (forWithIndex_)
 import Data.Maybe (Maybe(..))
@@ -31,6 +32,7 @@ import Hylograph.Halogen.UI.Accordion as Accordion
 import Hylograph.Halogen.UI.Toggle as Toggle
 import Hylograph.Halogen.UI.Stepper as Stepper
 import Hylograph.Halogen.UI.Slider as Slider
+import Hylograph.Halogen.UI.Knob as Knob
 import Hylograph.Halogen.UI.SegmentedControl as Segmented
 import Hylograph.Halogen.UI.Select as Select
 import Hylograph.Halogen.UI.Modal as Modal
@@ -77,6 +79,7 @@ type Slots =
   , toggle :: Toggle.Slot Unit
   , stepper :: Stepper.Slot Unit
   , slider :: Slider.Slot Unit
+  , knob :: Knob.Slot Unit
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
@@ -94,6 +97,9 @@ _stepper = Proxy
 _slider :: Proxy "slider"
 _slider = Proxy
 
+_knob :: Proxy "knob"
+_knob = Proxy
+
 _segmented :: Proxy "segmented"
 _segmented = Proxy
 
@@ -109,6 +115,7 @@ type State =
   , toggleOn :: Boolean
   , stepper :: Int
   , slider :: Number
+  , knob :: Number
   , segment :: String
   , selected :: Maybe String
   , modalOpen :: Boolean
@@ -122,6 +129,7 @@ initialState =
   , toggleOn: true
   , stepper: 3
   , slider: 40.0
+  , knob: 65.0
   , segment: "list"
   , selected: Nothing
   , modalOpen: false
@@ -135,6 +143,7 @@ data Action
   | TogChanged Boolean
   | StepChanged Int
   | SldChanged Number
+  | KnobChanged Number
   | SegSelected String
   | SelSelected String
   | OpenModal
@@ -173,6 +182,7 @@ handleAction = case _ of
   TogChanged v -> H.modify_ _ { toggleOn = v }
   StepChanged v -> H.modify_ _ { stepper = v }
   SldChanged v -> H.modify_ _ { slider = v }
+  KnobChanged v -> H.modify_ _ { knob = v }
   SegSelected k -> H.modify_ _ { segment = k }
   SelSelected v -> H.modify_ _ { selected = Just v }
   OpenModal -> H.modify_ _ { modalOpen = true }
@@ -220,6 +230,7 @@ navColumn =
     , navLink "toggle" "Toggle"
     , navLink "stepper" "Stepper"
     , navLink "slider" "Slider"
+    , navLink "knob" "Knob"
     , navLink "segmented" "Segmented"
     , navLink "select" "Select"
     , HH.div [ cls "nav-group" ] [ HH.text "Chrome functions" ]
@@ -313,6 +324,21 @@ stories st =
               (\(Slider.Changed v) -> SldChanged v)
           , HH.span [ sty "font:12px 'SF Mono',Menlo,monospace;color:#5a564b" ]
               [ HH.text ("value: " <> show st.slider) ]
+          ]
+      )
+  , story st.theme
+      { anchor: "knob", title: "Knob", tier: "leaf · controlled · debounced · SVG"
+      , blurb: "A rotary knob — vertical drag changes the value (140 px = full range). Self-debounced. Geometry ported from producing-with-your-feet's Donut via Triggerfish; pure SVG, no chart library."
+      , code: knobCode }
+      ( HH.div [ sty "display:flex;align-items:center;gap:20px" ]
+          [ HH.slot _knob unit Knob.component
+              ((Knob.defaultInput st.knob)
+                { min = 0.0, max = 100.0, ticks = 0
+                , label = Just "GAIN"
+                })
+              (\(Knob.Changed v) -> KnobChanged v)
+          , HH.span [ sty "font:12px 'SF Mono',Menlo,monospace;color:#5a564b" ]
+              [ HH.text ("value: " <> show (Int.round st.knob)) ]
           ]
       )
   , story st.theme
@@ -436,6 +462,13 @@ allContracts =
   , { slug: "slider"
     , fragments:
         [ TypeSyn "Input" "Record ( value :: Number, min :: Number, max :: Number, step :: Number, debounce :: Milliseconds, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Changed", args: [ "Number" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "knob"
+    , fragments:
+        [ TypeSyn "Input" "Record ( value :: Number, min :: Number, max :: Number, size :: Number, color :: String, label :: Maybe String, ticks :: Int, debounce :: Milliseconds, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Changed", args: [ "Number" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
@@ -568,6 +601,17 @@ HH.slot _slider unit Slider.component
   (Slider.defaultInput state.slider)
     { min = 0.0, max = 100.0 }
   (\(Slider.Changed v) -> SldChanged v)"""
+
+knobCode :: String
+knobCode =
+  """-- vertical drag changes the value (140 px = full range), self-debounced
+HH.slot _knob unit Knob.component
+  (Knob.defaultInput state.knob)
+    { min = 0.0, max = 100.0
+    , label = Just "GAIN"
+    , ticks = 0          -- > 1 draws detent marks
+    }
+  (\(Knob.Changed v) -> KnobChanged v)"""
 
 segmentedCode :: String
 segmentedCode =
