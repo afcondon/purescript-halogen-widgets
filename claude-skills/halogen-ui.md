@@ -1,0 +1,231 @@
+# Hylograph Halogen UI
+
+Load the **`hylograph-halogen-ui`** widget toolkit into context for *consuming*
+the library in a Halogen app — wiring widgets, owning their state, raising
+their `Output` back into your `Action`. Twelve widgets on one uniform controlled
+contract; the value of the library is the rail, not any single widget. Pair
+with `/halogen-hooks` for behaviour-level state inside hand-rolled code.
+
+## Arguments
+
+$ARGUMENTS
+
+## Instructions
+
+When invoked without arguments, confirm the contract is loaded and use these
+widgets and patterns when writing Halogen UI going forward. When invoked with a
+file path, review that file: flag hand-rolled controls that the library already
+provides (modals, accordions, dropdowns, debounced sliders/knobs), and check
+existing usage against the contract and gotchas below. Match the file's existing
+state style; don't propose component refactors unless asked.
+
+## Install
+
+```bash
+# Path dep until the library is registry-published:
+# in your spago.yaml workspace:
+#   extraPackages:
+#     hylograph-halogen-ui:
+#       path: /Users/afc/work/afc-work/purescript-hylograph-halogen-ui
+#
+# in your package dependencies:
+#   - hylograph-halogen-ui
+
+# To use the theme stylesheet:
+<link rel="stylesheet" href="hylograph-ui.css">
+```
+
+Widgets carry baked-in light-mode fallbacks via `var(--hg-*, fallback)`, so they
+render correctly with NO stylesheet. Linking `hylograph-ui.css` enables theming:
+dark via `@media (prefers-color-scheme: dark)`, or set `data-theme="light" |
+"dark" | "hylograph"` on the host element (usually `<html>`).
+
+## The contract — five rules every widget obeys
+
+These come straight from the library's CONTRACT.md. Internalise them; you'll
+see them in every widget's surface.
+
+1. **Controlled.** The parent owns the value. `Input` carries it; `Output`
+   carries a *request to change it*. The widget never mutates its own copy.
+2. **Resync on `receive`.** Every widget re-syncs its internal state from
+   `Input` on every parent render. You never lose intent to drift.
+3. **`MonadAff` everywhere.** Behaviours like debounce live *inside* the widget
+   — never re-implement them in app code (use `/halogen-hooks` for *behaviour
+   in your own components*).
+4. **Uniform exports.** Every widget exports `Input`, `Output(..)`, `Query(..)`,
+   `Slot`, `component`, `defaultInput`, in that order.
+5. **Two tiers.** Leaf widgets are full `H.Component`s; containers wrapping
+   caller-owned *interactive* content (Modal, Panel, Field, Toast) are
+   action-polymorphic *render functions*, because Halogen has no children-
+   channel for foreign-typed actions.
+
+## The widgets
+
+### Leaf components (full `H.Component`s — slot, query, output)
+
+| Module | Controlled value | `Output` | Notes |
+|---|---|---|---|
+| `Accordion` | `open :: Boolean` | `Toggled Boolean` | Disclosure header; self-debounced toggle (default 120 ms — coalesces double-dispatched clicks). Parent renders the body. |
+| `Toggle` | `value :: Boolean` | `Changed Boolean` | The minimal instance. Switch track + knob, optional label. |
+| `Stepper` | `value :: Int` | `Changed Int` | `‹ value ›` with clamped `min`/`max`/`step`. Arrows disable at bounds. |
+| `Slider` | `value :: Number` | `Changed Number` | Range input, **self-debounced** (default 80 ms) — a drag floods input events. Pass `Milliseconds 0.0` to emit every step. |
+| `Knob` | `value :: Number` | `Changed Number` | Vertical-drag rotary, 140 px = full range, 300° sweep, pure SVG. **Default debounce 0** — the parent's read-back is what the user is watching mid-drag. Raise debounce only for expensive per-tick sinks (MIDI write, audio ramp). |
+| `DoubleKnob` | `outer :: Layer`, `inner :: Layer` | `OuterChanged Number` / `InnerChanged Number` | Concentric two-layer knob (Strymon / Chase Bliss pattern). Each layer independently dragged; tag tells you which. |
+| `SegmentedControl` | `active :: String` | `Selected String` | Tab-bar selector. **Parent owns `active` AND renders the pane** — control is only the selector. |
+| `Select` | `selected :: Maybe String` | `Selected String` | Dropdown, optional `searchable` typeahead. `selected` controlled; `open`/`query` are *ephemeral* (widget owns them). |
+
+### Chrome functions (render functions polymorphic in the caller's action)
+
+| Module | Signature | Notes |
+|---|---|---|
+| `Panel` | `PanelConfig -> Array HTML -> HTML` | Titled surface. |
+| `Field` | `FieldConfig -> HTML -> HTML` | Labelled form row (label · control · optional hint). |
+| `Modal` | `ModalConfig i -> Array HTML -> HTML` | Overlay + centred panel; `onClose :: i` raised by backdrop or ×. Renders nothing when `open: false`. |
+| `Toast` | `ToastConfig i -> HTML` | Banner coloured by `Variant (Info\|Success\|Warning\|Error)`; optional `onDismiss :: Maybe i`. |
+
+## Wiring a leaf widget — the canonical shape
+
+The library's `defaultInput` is the on-ramp: instantiate with one argument and
+override fields you care about with record update.
+
+```purescript
+import Hylograph.Halogen.UI.Slider as Slider
+import Type.Proxy (Proxy(..))
+
+type Slots =
+  ( slider :: Slider.Slot Unit
+  -- … one entry per widget instance, the value type is its Slot
+  )
+
+_slider :: Proxy "slider"
+_slider = Proxy
+
+type State = { gain :: Number, … }
+
+data Action
+  = GainChanged Number
+  | …
+
+render :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
+render st =
+  HH.slot _slider unit Slider.component
+    ((Slider.defaultInput st.gain) { min = 0.0, max = 100.0 })
+    (\(Slider.Changed v) -> GainChanged v)
+
+handleAction :: forall m. MonadAff m => Action -> H.HalogenM State Action Slots o m Unit
+handleAction = case _ of
+  GainChanged v -> H.modify_ _ { gain = v }
+  …
+```
+
+That's the whole pattern. The four moving parts are exactly:
+
+1. **A slot row entry** (`slider :: Slider.Slot Unit`)
+2. **A `Proxy` for the row label** (`_slider = Proxy`)
+3. **An `Action` constructor** that takes the new value
+4. **A `handleAction` arm** that does `H.modify_` to honour the request
+
+Want multiple instances of the same widget? Vary the slot index: `HH.slot
+_slider "channel-1" …`, `HH.slot _slider "channel-2" …`.
+
+## Wiring a chrome function — even simpler
+
+No slot, no query, no `Proxy` — just pass your action through:
+
+```purescript
+import Hylograph.Halogen.UI.Modal as Modal
+
+data Action = OpenModal | CloseModal | …
+
+render st =
+  HH.div_
+    [ HH.button [ HE.onClick \_ -> OpenModal ] [ HH.text "Open" ]
+    , Modal.modal
+        { open: st.modalOpen, title: "Confirm", onClose: CloseModal }
+        [ HH.p_ [ HH.text "body content of your choice — typed in YOUR action" ]
+        , HH.button [ HE.onClick \_ -> CloseModal ] [ HH.text "Close" ]
+        ]
+    ]
+```
+
+## Controlled vs ephemeral state — which lives where
+
+Not every bit of widget state is in `Input`. Only the **app-meaningful** part is.
+Pure interaction transient (a dropdown's open-flag, a search input's filter
+text) is owned by the widget. Test: would the parent ever want to read, persist,
+or drive it from elsewhere? If yes → controlled (in `Input`). If no → ephemeral
+(widget keeps it internally, never surfaces).
+
+`Accordion.open` is **controlled** — Triggerfish persists `collapsed`. `Select.open`
+is **ephemeral** — nothing outside the moment cares. Same word, opposite tier;
+decided entirely by whether the app cares.
+
+## Debounce — when to crank it up, when to leave off
+
+The library has the same generation-counter debounce idiom in `Accordion`,
+`Slider`, `Knob`, `DoubleKnob`. Defaults differ on purpose:
+
+- **`Accordion` 120 ms** — coalesces a double-dispatched click into one toggle.
+- **`Slider` 80 ms** — a drag floods input events.
+- **`Knob` / `DoubleKnob` 0 ms** — the parent's read-back IS the gesture
+  feedback; debounce would lag the user's hand.
+
+Raise `debounce` when each `Output` triggers expensive downstream work — a
+MIDI write, a network round-trip, an audio param ramp. Lower it to `0` when
+you want every tick.
+
+```purescript
+(Knob.defaultInput st.cutoff) { debounce = Milliseconds 30.0 }
+```
+
+## Theming
+
+Three themes ship in `hylograph-ui.css`:
+
+- **`light`** (default) — Swiss-restrained whites and slate-grey ink.
+- **`dark`** — applied automatically by OS preference if no `data-theme` is set,
+  or forced via `data-theme="dark"`.
+- **`hylograph`** — opinionated Swiss-poster: warm paper, near-black ink, single
+  vermilion accent, 2 px corners, Helvetica. Opt in via `data-theme="hylograph"`.
+
+To recolour the widgets, override the `--hg-*` variables on any host element —
+no PureScript change needed. The full token list lives in `hylograph-ui.css`
+(ink, ink-soft, line, surface, surface-alt, accent, danger, warn, ok,
+track-off, control-border, knob, shadow, backdrop, page-bg; plus `--hg-radius`
+and `--hg-font` which only `hylograph` overrides).
+
+In **`hylograph` mode**, the showcase additionally typesets each widget's
+contract surface (Input record, Output ADT, component signature) via Sigil —
+that's a showcase trick, not a feature of the widgets themselves; consumers
+don't get it automatically.
+
+## Gotchas
+
+- **`receive` is wired for you** — every widget honours `Input` changes from
+  the parent. If a widget seems "stuck on its first value," it's something
+  else (a memoised render, parent state not actually changing, etc.).
+- **`defaultInput` always over a record literal.** It's the on-ramp; the
+  record's fields will gain non-breaking additions over time. Constructing
+  `Input` by hand is allowed but commits you to maintain every field.
+- **`Slot` types are namespaced per widget.** A slot row is
+  `( slider :: Slider.Slot Unit, knob :: Knob.Slot Unit, …)`; don't unify
+  them. The `Unit` is the slot *index*; use `String`/`Int`/your own type to
+  multi-instance.
+- **Knob output is uncontrolled by default** (debounce = 0). If you mirror it
+  to a sink that doesn't handle floods, set `debounce = Milliseconds 30.0` or
+  higher.
+- **`SegmentedControl` only renders the selector** — you render the pane.
+  Same for `Accordion` (parent renders the body).
+
+## When NOT to use this library — reach for `/halogen-hooks` instead
+
+A *behaviour you need inside a component you're already writing* — debounce a
+search input that you render yourself, run an effect on mount, hold a ref to a
+DOM node — is a Hook, not a widget. The library widgets are for *reusable*
+controls. Don't dress up a one-off behaviour as a widget; the boilerplate isn't
+free even when it's mechanical.
+
+Rule of thumb: **a Hook is how you write a behaviour once in app code; a widget
+is how you ship a behaviour for reuse.** Triggerfish's accordion-toggle
+debounce was the canonical case — could have been either; we shipped it as
+`Accordion` to retire the pattern across the ecosystem.
