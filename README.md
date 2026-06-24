@@ -5,6 +5,12 @@ controlled component contract**. An old-fashioned widget toolkit, on purpose:
 the value is not any single widget but that every widget obeys the same small
 rail, so the next one is predictable to author and safe to delegate.
 
+**▶ Live demo: [widgets.hylograph.net](https://widgets.hylograph.net)** — every
+widget shown next to its usage code, in three themes (the opinionated *Hylograph*
+mode typesets each widget's contract via [Sigil](https://github.com/afcondon)).
+The showcase (in `showcase/`) is the canonical artifact: it dogfoods the library
+it documents.
+
 > Status: **v0.1, contract-settled.** The leaf components
 > (`VAccordion` / `HAccordion`, `Toggle`, `Stepper`, `Slider`, `Knob`,
 > `DoubleKnob`, `SegmentedControl`, `Select`, `Compare`) and the chrome
