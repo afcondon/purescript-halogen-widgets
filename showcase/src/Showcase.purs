@@ -6,10 +6,10 @@ module Showcase (component) where
 
 import Prelude
 
-import Data.Array (elem, filter, find, mapMaybe, mapWithIndex)
+import Data.Array (find, mapMaybe, mapWithIndex)
+import Data.Array as Array
 import Data.Int as Int
-import Data.String as Str
-import Data.String.Pattern (Pattern(..))
+import Data.String.CodeUnits as SCU
 import Data.Foldable (traverse_)
 import Data.FoldableWithIndex (forWithIndex_)
 import Data.Maybe (Maybe(..))
@@ -89,7 +89,6 @@ type Slots =
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
-  , contractFold :: VAccordion.Slot String
   )
 
 _accordion :: Proxy "accordion"
@@ -122,9 +121,6 @@ _select = Proxy
 _themeSwitch :: Proxy "themeSwitch"
 _themeSwitch = Proxy
 
-_contractFold :: Proxy "contractFold"
-_contractFold = Proxy
-
 type State =
   { theme :: Theme
   , accordionOpen :: Boolean
@@ -136,8 +132,6 @@ type State =
   , knob :: Number
   , doubleOuter :: Number
   , doubleInner :: Number
-  -- Story slugs whose contract block is currently folded (Triggerfish pattern).
-  , closedContracts :: Array String
   , segment :: String
   , selected :: Maybe String
   , modalOpen :: Boolean
@@ -155,7 +149,6 @@ initialState =
   , knob: 65.0
   , doubleOuter: 70.0
   , doubleInner: 30.0
-  , closedContracts: []
   , segment: "list"
   , selected: Nothing
   , modalOpen: false
@@ -173,7 +166,6 @@ data Action
   | KnobChanged Number
   | DoubleOuterChanged Number
   | DoubleInnerChanged Number
-  | ToggleContract String Boolean
   | SegSelected String
   | SelSelected String
   | OpenModal
@@ -218,20 +210,6 @@ handleAction = case _ of
   KnobChanged v -> H.modify_ _ { knob = v }
   DoubleOuterChanged v -> H.modify_ _ { doubleOuter = v }
   DoubleInnerChanged v -> H.modify_ _ { doubleInner = v }
-  ToggleContract slug wantOpen -> do
-    H.modify_ \s -> s
-      { closedContracts =
-          if wantOpen
-            then filter (_ /= slug) s.closedContracts
-            else if elem slug s.closedContracts
-                   then s.closedContracts
-                   else s.closedContracts <> [ slug ]
-      }
-    -- Re-inject Sigil once the placeholder is back in the VDOM. 0-delay yields
-    -- the event loop so Halogen renders the new structure before injection.
-    when wantOpen $ void $ H.fork do
-      liftAff (delay (Milliseconds 0.0))
-      liftEffect renderAllContracts
   SegSelected k -> H.modify_ _ { segment = k }
   SelSelected v -> H.modify_ _ { selected = Just v }
   OpenModal -> H.modify_ _ { modalOpen = true }
@@ -310,63 +288,139 @@ story st meta demo =
           , HH.span [ cls "tier" ] [ HH.text meta.tier ]
           ]
       , HH.p [ cls "blurb" ] [ HH.text meta.blurb ]
-      -- Demo gets the centre of attention: wide, centred, generous padding.
-      , HH.div [ cls "story-stage" ] [ demo ]
+      -- Part 1, the hero: the live demo, bright and large.
+      , storyPart true "Demo" [ HH.div [ cls "story-stage" ] [ demo ] ]
       ]
-      -- The Sigil-typeset contract is Hylograph-only AND collapsible, via OUR
-      -- Accordion — the showcase dogfoods the widget it's documenting.
+      -- Part 2 (Hylograph only): the Sigil-typeset contract, recessed.
       <> contractBlock st meta.anchor
-      <>
-      -- Usage code, always visible, wrapped in OUR Panel for chrome consistency.
-      [ Panel.panel { title: "Usage", sub: Nothing }
-          [ HH.pre [ cls "code" ] (codeLines meta.code) ]
-      ]
+      -- Part 3: the usage code, recessed, syntax-highlighted as native VDOM.
+      <> [ storyPart false "Usage"
+             [ HH.pre [ cls "code" ] [ HH.code_ (highlight meta.code) ] ]
+         ]
     )
 
--- | The contract section: only rendered in Hylograph mode. The Accordion is
--- | controlled — parent owns `open` in `closedContracts`. When the body is
--- | visible we mount the Sigil placeholders, which `renderAllContracts` then
--- | fills via querySelector.
+-- | One numbered part of a story. The ordinal is supplied by a CSS counter on
+-- | `.story` (so it stays contiguous whether or not the contract part is
+-- | present); `hero` marks the demo, which keeps the bright card while the
+-- | reference parts (contract, usage) recede.
+storyPart
+  :: forall m
+   . Boolean -> String -> Array (H.ComponentHTML Action Slots m)
+  -> H.ComponentHTML Action Slots m
+storyPart hero label content =
+  HH.div [ cls ("story-part " <> if hero then "story-part--hero" else "story-part--ref") ]
+    [ HH.div [ cls "story-part__head" ]
+        [ HH.span [ cls "story-part__label" ] [ HH.text label ] ]
+    , HH.div [ cls "story-part__body" ] content
+    ]
+
+-- | The contract part: only rendered in Hylograph mode. Always visible (no
+-- | longer folded), so the Sigil placeholders are in the VDOM whenever the
+-- | theme is Hylograph; `renderAllContracts` fills them on the theme switch.
 contractBlock
   :: forall m
    . MonadAff m
   => State -> String -> Array (H.ComponentHTML Action Slots m)
 contractBlock st slug = case st.theme, findContract slug of
-  Hylograph, Just c ->
-    let isOpen = not (elem slug st.closedContracts) in
-    [ HH.div [ cls "story-contract-wrap" ]
-        ( [ HH.slot _contractFold slug VAccordion.component
-              ((VAccordion.defaultInput "Type contract")
-                { open = isOpen, sub = Just "typeset by Sigil" })
-              (\(VAccordion.Toggled o) -> ToggleContract slug o)
-          ]
-          <> if isOpen then [ contractPlaceholders c ] else []
-        )
-    ]
+  Hylograph, Just c -> [ storyPart false "Type contract" [ contractPlaceholders c ] ]
   _, _ -> []
 
--- | A minimum-viable PureScript "highlight": comment lines (whole lines whose
--- | trimmed prefix is `--`) get a different class so they read greyer and
--- | italic. Anything richer (keyword/string/type colouring) wants a real
--- | tokenizer — punt until needed.
-codeLines :: forall w i. String -> Array (HH.HTML w i)
-codeLines src =
-  let
-    raw = Str.split (Pattern "\n") src
-    -- Re-emit newlines between lines so `<pre>` preserves layout.
-    withSep = mapWithIndex
-      (\i line ->
-         let nl = if i == 0 then "" else "\n"
-             txt = nl <> line
-         in if isCommentLine line
-              then HH.span [ cls "tok-comment" ] [ HH.text txt ]
-              else HH.text txt)
-      raw
-  in
-    [ HH.code_ withSep ]
+-- | Simple-path PureScript syntax highlighting: a single forward character scan
+-- | that classifies comments, strings, numbers, operators, keywords, and
+-- | constructors into semantic spans, emitting native VDOM (no FFI, no string
+-- | injection). Term variables and punctuation stay uncoloured so the
+-- | highlighted tokens read as accents, not confetti; dots are left plain, so
+-- | `HH.slot` reads as a quiet module then `slot`.
+highlight :: forall w i. String -> Array (HH.HTML w i)
+highlight src = go 0 []
+  where
+  len = SCU.length src
+  sub a b = SCU.take (b - a) (SCU.drop a src)
 
-isCommentLine :: String -> Boolean
-isCommentLine line = Str.take 2 (Str.trim line) == "--"
+  go :: Int -> Array (HH.HTML w i) -> Array (HH.HTML w i)
+  go i acc
+    | i >= len = acc
+    | otherwise = case SCU.charAt i src of
+        Nothing -> acc
+        Just c
+          | isSpace c ->
+              let j = takeWhile isSpace (i + 1)
+              in go j (acc <> [ HH.text (sub i j) ])
+          | c == '-' && SCU.charAt (i + 1) src == Just '-' ->
+              let j = takeWhile (\d -> d /= '\n') (i + 1)
+              in go j (acc <> [ tok "tok-comment" (sub i j) ])
+          | c == '"' ->
+              let j = stringEnd (i + 1)
+              in go j (acc <> [ tok "tok-string" (sub i j) ])
+          | isDigit c ->
+              let j = takeWhile isNumChar (i + 1)
+              in go j (acc <> [ tok "tok-num" (sub i j) ])
+          | isIdentStart c ->
+              let j = takeWhile isIdentChar (i + 1)
+              in go j (acc <> [ identTok c (sub i j) ])
+          | isSymbolChar c ->
+              let j = takeWhile isSymbolChar (i + 1)
+              in go j (acc <> [ tok "tok-op" (sub i j) ])
+          | otherwise -> go (i + 1) (acc <> [ HH.text (SCU.singleton c) ])
+
+  takeWhile :: (Char -> Boolean) -> Int -> Int
+  takeWhile p k
+    | k >= len = len
+    | otherwise = case SCU.charAt k src of
+        Just d | p d -> takeWhile p (k + 1)
+        _ -> k
+
+  stringEnd :: Int -> Int
+  stringEnd k
+    | k >= len = len
+    | otherwise = case SCU.charAt k src of
+        Just '"' -> k + 1
+        Just '\\' -> stringEnd (k + 2)
+        Just _ -> stringEnd (k + 1)
+        Nothing -> len
+
+  identTok :: Char -> String -> HH.HTML w i
+  identTok first s
+    | s `Array.elem` keywords = tok "tok-kw" s
+    | isUpper first = tok "tok-con" s
+    | otherwise = HH.text s
+
+tok :: forall w i. String -> String -> HH.HTML w i
+tok klass s = HH.span [ cls klass ] [ HH.text s ]
+
+keywords :: Array String
+keywords =
+  [ "module", "import", "where", "do", "ado", "let", "in", "case", "of"
+  , "if", "then", "else", "data", "newtype", "type", "class", "instance"
+  , "derive", "forall", "infixl", "infixr", "infix" ]
+
+symbolChars :: Array Char
+symbolChars =
+  [ '=', '-', '>', '<', '+', '*', '/', '\\', '|', '&', ':', '#', '$', '!', '?', '^', '~', '%', '@' ]
+
+isSpace :: Char -> Boolean
+isSpace c = c == ' ' || c == '\n' || c == '\t' || c == '\r'
+
+isDigit :: Char -> Boolean
+isDigit c = c >= '0' && c <= '9'
+
+isUpper :: Char -> Boolean
+isUpper c = c >= 'A' && c <= 'Z'
+
+isLower :: Char -> Boolean
+isLower c = c >= 'a' && c <= 'z'
+
+isIdentStart :: Char -> Boolean
+isIdentStart c = isUpper c || isLower c || c == '_'
+
+isIdentChar :: Char -> Boolean
+isIdentChar c = isIdentStart c || isDigit c || c == '\''
+
+isNumChar :: Char -> Boolean
+isNumChar c = isDigit c || c == '.'
+
+isSymbolChar :: Char -> Boolean
+isSymbolChar c = c `Array.elem` symbolChars
 
 btn :: forall w i. i -> String -> HH.HTML w i
 btn act label =
@@ -855,7 +909,7 @@ a { color: inherit; }
 .nav-link { display: block; padding: 4px 0; text-decoration: none; font-size: 14px; }
 .nav-link:hover { color: var(--hg-accent); }
 .main { padding: 40px 32px 140px; min-width: 0; }
-.story { margin-bottom: 72px; scroll-margin-top: 24px; }
+.story { margin-bottom: 72px; scroll-margin-top: 24px; counter-reset: part; }
 .story-head { display: flex; align-items: baseline; gap: 12px; }
 .story-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
 .tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hg-ink-soft); }
@@ -865,43 +919,50 @@ a { color: inherit; }
 .demo-eyebrow { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
   color: var(--hg-ink-soft); font-weight: 600; margin: 0 0 8px; }
 
-/* Stage: the live demo gets prominence — wide, centred, generous breath. This
- * is the product; nothing else on the story competes with it. */
+/* Numbered parts. A counter on `.story` numbers them contiguously, so the
+ * Hylograph-only contract part never leaves a gap (light/dark read 01/02,
+ * Hylograph reads 01/02/03). The hero (demo) keeps the bright card; the
+ * reference parts (contract, usage) recede onto the page ground. */
+.story-part { margin: 22px 0 0; }
+.story-part__head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.story-part__head::before {
+  counter-increment: part;
+  content: counter(part, decimal-leading-zero);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
+  font-size: 11px; font-weight: 600; color: var(--hg-accent); letter-spacing: 0.04em; }
+.story-part__label { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--hg-ink-soft); font-weight: 600; }
+
+/* Hero: the live demo gets prominence — wide, centred, generous breath. */
 .story-stage { display: flex; align-items: center; justify-content: center;
-  min-height: 160px; padding: 48px 32px; margin: 0 0 20px;
+  min-height: 160px; padding: 48px 32px;
   background: var(--hg-surface); border: 1px solid var(--hg-line);
   border-radius: var(--hg-radius, 12px);
   transition: background 200ms ease, border-color 200ms ease; }
 
-/* Contract block (Hylograph mode only). Its heading is OUR Accordion; the
- * Sigil placeholders sit below it when open. Margin top is 0 because Accordion
- * carries its own padding; the box wrap matches the stage/usage chrome. */
-.story-contract-wrap { margin: 0 0 20px; }
-.story-contract { display: flex; flex-direction: column; gap: 10px;
-  padding: 18px 22px 22px;
-  background: var(--hg-surface); border: 1px solid var(--hg-line); border-top: 0;
-  border-radius: 0 0 var(--hg-radius, 8px) var(--hg-radius, 8px); }
+/* Reference parts recede: quiet inset on the page ground, hairline, no card. */
+.story-part--ref .story-part__body {
+  padding: 16px 20px;
+  background: var(--hg-surface-alt); border: 1px solid var(--hg-line);
+  border-radius: var(--hg-radius, 8px); }
+.story-contract { display: flex; flex-direction: column; gap: 10px; }
 .story-contract__frag { font-size: 14px; }
 .story-contract__frag:empty { display: none; }
-.story-contract-wrap .hg-accordion {
-  background: var(--hg-surface); padding: 12px 22px;
-  border: 1px solid var(--hg-line); border-bottom: 1px solid var(--hg-line);
-  border-radius: var(--hg-radius, 8px) var(--hg-radius, 8px) 0 0; }
-.story-contract-wrap .hg-accordion--open { border-bottom: 0; }
-.story-contract-wrap .hg-accordion + .story-contract { border-radius: 0 0 var(--hg-radius, 8px) var(--hg-radius, 8px); }
-/* If the contract is closed, the Accordion alone has the full rounded chrome. */
-.story-contract-wrap .hg-accordion:not(.hg-accordion--open) {
-  border-radius: var(--hg-radius, 8px); border-bottom: 1px solid var(--hg-line); }
 
-/* Usage code in a Panel (the library's own chrome). Code itself gets
- * monospace ligatures, more breath, and comment-line styling. */
-.hg-panel.hg-panel { background: var(--hg-surface-alt); }
+/* Usage code, syntax-highlighted as native VDOM (no FFI). The token classes are
+ * accents on otherwise-uncoloured text — keywords, constructors, strings,
+ * numbers, operators; term variables and punctuation stay plain. */
 pre.code { margin: 0; overflow: auto; color: var(--hg-ink);
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
   font-feature-settings: "calt" 1, "liga" 1, "ss01" 1, "ss02" 1;
   font-variant-ligatures: contextual common-ligatures;
-  font-size: 12.5px; line-height: 1.7; padding: 2px 0; }
+  font-size: 12.5px; line-height: 1.7; }
 pre.code .tok-comment { color: var(--hg-ink-soft); font-style: italic; opacity: 0.85; }
+pre.code .tok-kw { color: var(--hg-accent); font-weight: 600; }
+pre.code .tok-con { color: #3f9d6f; }
+pre.code .tok-string { color: #c98a4b; }
+pre.code .tok-num { color: #4a90c2; }
+pre.code .tok-op { color: var(--hg-ink-soft); }
 
 @media (max-width: 820px) {
   .page { grid-template-columns: 1fr; }
