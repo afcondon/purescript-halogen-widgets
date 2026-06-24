@@ -7,7 +7,7 @@ rail, so the next one is predictable to author and safe to delegate.
 
 **▶ Live demo: [widgets.hylograph.net](https://widgets.hylograph.net)** — every
 widget shown next to its usage code, in three themes (the opinionated *Hylograph*
-mode typesets each widget's contract via [Sigil](https://github.com/afcondon)).
+mode typesets each widget's contract via [Sigil](https://github.com/afcondon/purescript-sigil)).
 The showcase (in `showcase/`) is the canonical artifact: it dogfoods the library
 it documents.
 
