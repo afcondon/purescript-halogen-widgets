@@ -227,6 +227,19 @@ don't get it automatically.
   not behaviour — they share an internal core. A `rotate(-90deg)` collapsed
   label where you wanted a flat header means you reached for `HAccordion` where
   `VAccordion` was wanted.
+- **Radio vs bitfield is a parent-state choice, not a widget mode.** An
+  accordion never owns `open` — it emits `Toggled Boolean`, a request. How many
+  panels can be open at once is decided entirely by your `handleAction`:
+  - *Radio* (one open at a time): keep a single key, `open :: String`.
+    `Selected k -> modify_ _ { openPanel = k }`; render `open = openPanel == key`.
+  - *Bitfield* (any subset, **Triggerfish's case**): keep a set,
+    `collapsed :: Array String` (or `Set String`).
+    `Toggle k wantOpen -> modify_ \s -> s { collapsed = if wantOpen then filter (_ /= k) s.collapsed else snoc s.collapsed k }`; render `open = not (elem key collapsed)`.
+
+  Same widget, same `Toggled` output for both. Don't reach for an
+  `AccordionGroup` that owns the open-set: the moment a panel body is
+  interactive it hits the same children-channel limit that makes Modal/Panel
+  chrome functions. Parent-orchestrated is the right level.
 
 ## When NOT to use this library — reach for `/halogen-hooks` instead
 

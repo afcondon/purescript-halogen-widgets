@@ -96,7 +96,7 @@ parseTheme = case _ of
   _ -> Light
 
 type Slots =
-  ( accordion :: VAccordion.Slot Unit
+  ( accordion :: VAccordion.Slot String
   , accordionH :: HAccordion.Slot String
   , toggle :: Toggle.Slot Unit
   , stepper :: Stepper.Slot Unit
@@ -144,8 +144,10 @@ _themeSwitch = Proxy
 
 type State =
   { theme :: Theme
-  , accordionOpen :: Boolean
-  -- Which column of the horizontal-accordion demo is expanded (only one).
+  -- Vertical accordion: BITFIELD semantics — the set of collapsed panels
+  -- (exactly Triggerfish's `collapsed`). Any subset may be folded.
+  , vCollapsed :: Array String
+  -- Horizontal accordion: RADIO semantics — the single open column.
   , accordionHOpen :: String
   , toggleOn :: Boolean
   , stepper :: Int
@@ -163,7 +165,7 @@ type State =
 initialState :: State
 initialState =
   { theme: Light
-  , accordionOpen: true
+  , vCollapsed: [ "shape" ]
   , accordionHOpen: "sources"
   , toggleOn: true
   , stepper: 3
@@ -181,7 +183,7 @@ initialState =
 data Action
   = Initialize
   | SetTheme Theme
-  | AccToggled Boolean
+  | VAccToggle String Boolean
   | AccHSelect String
   | TogChanged Boolean
   | StepChanged Int
@@ -237,9 +239,15 @@ handleAction = case _ of
     liftEffect (setThemeAttr (themeName t))
     liftEffect (saveTheme t)
     when (t == Hylograph) scheduleInject
-  AccToggled o -> H.modify_ _ { accordionOpen = o }
-  -- One column open at a time: clicking a folded spine opens it (folding the
-  -- rest); clicking the open column's header is a no-op (can't fold them all).
+  -- BITFIELD: toggle just this panel's membership in the collapsed set.
+  -- Every panel folds independently; any subset may be open.
+  VAccToggle k wantOpen -> H.modify_ \s -> s
+    { vCollapsed =
+        if wantOpen then Array.filter (_ /= k) s.vCollapsed
+        else if Array.elem k s.vCollapsed then s.vCollapsed else Array.snoc s.vCollapsed k
+    }
+  -- RADIO: one column open at a time. Clicking a folded spine opens it (folding
+  -- the rest); clicking the open column's header is a no-op (one stays open).
   AccHSelect k -> H.modify_ _ { accordionHOpen = k }
   TogChanged v -> H.modify_ _ { toggleOn = v }
   StepChanged v -> H.modify_ _ { stepper = v }
@@ -471,6 +479,31 @@ btn act label =
     ]
     [ HH.text label ]
 
+-- | Three stacked panels, each independently collapsible — BITFIELD semantics,
+-- | the Triggerfish case. The parent keeps a `collapsed` set; toggling one
+-- | panel touches only its own membership, so any subset may be open at once.
+vAccordionDemo :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
+vAccordionDemo st =
+  HH.div [ sty "width:100%;display:flex;flex-direction:column;gap:4px" ]
+    (map panel panels)
+  where
+  panels =
+    [ { key: "generate", label: "GENERATE", sub: Just "3 sources", body: "Seed the voice: sample sources, density, and the spawn rate." }
+    , { key: "shape",    label: "SHAPE",    sub: Nothing,          body: "Envelope, grain size, and the spectral tilt of each grain." }
+    , { key: "output",   label: "OUTPUT",   sub: Just "ES-9",      body: "Bus assignment, gain, and the send to the modular." }
+    ]
+  panel p =
+    let open = not (Array.elem p.key st.vCollapsed) in
+    HH.div [ sty "width:100%" ]
+      [ HH.slot _accordion p.key VAccordion.component
+          ((VAccordion.defaultInput p.label) { open = open, sub = p.sub })
+          (\(VAccordion.Toggled o) -> VAccToggle p.key o)
+      , if open
+          then HH.div [ sty "padding:8px 2px 14px;color:#5a564b;font:13px/1.6 system-ui" ]
+                 [ HH.text p.body ]
+          else HH.text ""
+      ]
+
 -- | Three columns side-by-side, exactly one open. The folded columns are thin
 -- | rotated spines; clicking a spine opens that column and folds the rest.
 -- | Clicking the open column's header is a no-op (one is always open). Three
@@ -543,21 +576,12 @@ stories :: forall m. MonadAff m => State -> Array (H.ComponentHTML Action Slots 
 stories st =
   [ story st
       { anchor: "vaccordion", title: "VAccordion", tier: "leaf · controlled-header"
-      , blurb: "The vertical accordion: panels stack as rows. The header is a full-width bar; collapsing hides the parent's body and flips the chevron ▾→▸. The common case — and the reference instance of the contract. The parent owns `open` and renders the body."
+      , blurb: "The vertical accordion: panels stack as rows; collapsing flips the chevron ▾→▸ and hides the parent's body. Shown here with **bitfield** semantics — the parent keeps a `collapsed` set, so each panel folds independently and any subset can be open (exactly Triggerfish). The widget is agnostic; it only emits `Toggled`."
       , code: vAccordionCode }
-      ( HH.div [ sty "width:100%" ]
-          [ HH.slot _accordion unit VAccordion.component
-              ((VAccordion.defaultInput "DETAILS") { open = st.accordionOpen, sub = Just "click to fold" })
-              (\(VAccordion.Toggled o) -> AccToggled o)
-          , if st.accordionOpen
-              then HH.div [ sty "padding:12px 2px 0;color:#5a564b;font:13px/1.5 system-ui" ]
-                     [ HH.text "The parent renders this body, gated on the open state it owns." ]
-              else HH.text ""
-          ]
-      )
+      ( vAccordionDemo st )
   , story st
       { anchor: "haccordion", title: "HAccordion", tier: "leaf · controlled-header"
-      , blurb: "The horizontal accordion: panels sit side by side as columns, and the folded ones become thin rotated spines — the Triggerfish layout. Same contract as VAccordion; only the collapsed rendering differs. Click a spine to open that column."
+      , blurb: "The horizontal accordion: panels sit side by side as columns, the folded ones thin rotated spines (the Triggerfish layout). Shown here with **radio** semantics — the parent keeps one open key, so opening a column folds the rest. Same widget, same `Toggled` output as VAccordion; only the parent's handler differs."
       , code: hAccordionCode }
       ( hAccordionDemo st )
   , story st
@@ -886,23 +910,26 @@ findContract slug = find (\c -> c.slug == slug) allContracts
 
 vAccordionCode :: String
 vAccordionCode =
-  """-- parent owns `open`; widget emits a request, parent renders the body
-HH.slot _accordion unit VAccordion.component
-  (VAccordion.defaultInput "DETAILS")
-    { open = state.accordionOpen, sub = Just "click to fold" }
-  (\(VAccordion.Toggled o) -> AccToggled o)
-, if state.accordionOpen then bodyHtml else HH.text ""
+  """-- BITFIELD: `collapsed` is a Set/Array; each panel folds independently.
+panel p = HH.slot _accordion p.key VAccordion.component
+  ((VAccordion.defaultInput p.label)
+     { open = not (elem p.key state.collapsed) })
+  (\(VAccordion.Toggled o) -> VAccToggle p.key o)
+
+VAccToggle k wantOpen ->                       -- the handler decides semantics
+  modify_ \s -> s { collapsed =
+    if wantOpen then filter (_ /= k) s.collapsed else snoc s.collapsed k }
 """
 
 hAccordionCode :: String
 hAccordionCode =
-  """-- N columns share a parent-owned "which is open" key; one open at a time
-HH.div_ (columns <#> \c ->
-  HH.slot _accordionH c.key HAccordion.component
-    ((HAccordion.defaultInput c.label)
-       { open = state.accordionHOpen == c.key })
-    (\_ -> AccHSelect c.key))
--- HAccordion differs from VAccordion only in the collapsed (spine) rendering.
+  """-- RADIO: `open` is a single key; opening a column folds the rest.
+column c = HH.slot _accordionH c.key HAccordion.component
+  ((HAccordion.defaultInput c.label)
+     { open = state.openColumn == c.key })
+  (\_ -> AccHSelect c.key)
+
+AccHSelect k -> modify_ _ { openColumn = k }   -- same widget; different handler
 """
 
 toggleCode :: String
