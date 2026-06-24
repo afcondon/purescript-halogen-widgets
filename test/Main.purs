@@ -12,7 +12,8 @@ import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
 
-import Hylograph.Halogen.UI.Accordion as Accordion
+import Hylograph.Halogen.UI.VAccordion as VAccordion
+import Hylograph.Halogen.UI.HAccordion as HAccordion
 import Hylograph.Halogen.UI.Toggle as Toggle
 import Hylograph.Halogen.UI.Stepper as Stepper
 import Hylograph.Halogen.UI.Slider as Slider
@@ -33,7 +34,8 @@ seen _ = true
 checks :: Boolean
 checks =
   -- Leaf components, pinned to their exported types at a concrete monad.
-  seen (Accordion.component :: H.Component Accordion.Query Accordion.Input Accordion.Output Aff)
+  seen (VAccordion.component :: H.Component VAccordion.Query VAccordion.Input VAccordion.Output Aff)
+    && seen (HAccordion.component :: H.Component HAccordion.Query HAccordion.Input HAccordion.Output Aff)
     && seen (Toggle.component :: H.Component Toggle.Query Toggle.Input Toggle.Output Aff)
     && seen (Stepper.component :: H.Component Stepper.Query Stepper.Input Stepper.Output Aff)
     && seen (Slider.component :: H.Component Slider.Query Slider.Input Slider.Output Aff)
@@ -53,7 +55,8 @@ checks =
     && (Knob.defaultInput 0.0).ticks == 0
     && (DoubleKnob.defaultInput 0.0 0.0).outer.value == 0.0
     && (Select.defaultInput []).searchable == false
-    && (Accordion.defaultInput "GENERATE").open == true
+    && (VAccordion.defaultInput "GENERATE").open == true
+    && (HAccordion.defaultInput "GENERATE").open == true
 
 main :: Effect Unit
 main = case checks of _ -> pure unit

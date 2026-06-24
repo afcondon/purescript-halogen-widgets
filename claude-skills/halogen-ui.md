@@ -65,7 +65,8 @@ see them in every widget's surface.
 
 | Module | Controlled value | `Output` | Notes |
 |---|---|---|---|
-| `Accordion` | `open :: Boolean` | `Toggled Boolean` | Disclosure header; self-debounced toggle (default 120 ms — coalesces double-dispatched clicks). Parent renders the body. |
+| `VAccordion` | `open :: Boolean` | `Toggled Boolean` | **Vertical** disclosure header (stacked rows); self-debounced toggle (default 120 ms — coalesces double-dispatched clicks). Parent renders the body. The common case. |
+| `HAccordion` | `open :: Boolean` | `Toggled Boolean` | **Horizontal** sibling: panels as side-by-side columns, collapsing to a rotated spine (Triggerfish layout). Identical contract; only collapsed rendering differs. |
 | `Toggle` | `value :: Boolean` | `Changed Boolean` | The minimal instance. Switch track + knob, optional label. |
 | `Stepper` | `value :: Int` | `Changed Int` | `‹ value ›` with clamped `min`/`max`/`step`. Arrows disable at bounds. |
 | `Slider` | `value :: Number` | `Changed Number` | Range input, **self-debounced** (default 80 ms) — a drag floods input events. Pass `Milliseconds 0.0` to emit every step. |
@@ -156,16 +157,16 @@ text) is owned by the widget. Test: would the parent ever want to read, persist,
 or drive it from elsewhere? If yes → controlled (in `Input`). If no → ephemeral
 (widget keeps it internally, never surfaces).
 
-`Accordion.open` is **controlled** — Triggerfish persists `collapsed`. `Select.open`
+`VAccordion.open` is **controlled** — Triggerfish persists `collapsed`. `Select.open`
 is **ephemeral** — nothing outside the moment cares. Same word, opposite tier;
 decided entirely by whether the app cares.
 
 ## Debounce — when to crank it up, when to leave off
 
-The library has the same generation-counter debounce idiom in `Accordion`,
+The library has the same generation-counter debounce idiom in the accordions,
 `Slider`, `Knob`, `DoubleKnob`. Defaults differ on purpose:
 
-- **`Accordion` 120 ms** — coalesces a double-dispatched click into one toggle.
+- **`VAccordion` / `HAccordion` 120 ms** — coalesces a double-dispatched click into one toggle.
 - **`Slider` 80 ms** — a drag floods input events.
 - **`Knob` / `DoubleKnob` 0 ms** — the parent's read-back IS the gesture
   feedback; debounce would lag the user's hand.
@@ -215,7 +216,12 @@ don't get it automatically.
   to a sink that doesn't handle floods, set `debounce = Milliseconds 30.0` or
   higher.
 - **`SegmentedControl` only renders the selector** — you render the pane.
-  Same for `Accordion` (parent renders the body).
+  Same for the accordions (parent renders the body).
+- **Two accordions, one contract.** `VAccordion` stacks rows (default);
+  `HAccordion` lays out columns and folds to a rotated spine. Pick by layout,
+  not behaviour — they share an internal core. A `rotate(-90deg)` collapsed
+  label where you wanted a flat header means you reached for `HAccordion` where
+  `VAccordion` was wanted.
 
 ## When NOT to use this library — reach for `/halogen-hooks` instead
 
@@ -228,4 +234,4 @@ free even when it's mechanical.
 Rule of thumb: **a Hook is how you write a behaviour once in app code; a widget
 is how you ship a behaviour for reuse.** Triggerfish's accordion-toggle
 debounce was the canonical case — could have been either; we shipped it as
-`Accordion` to retire the pattern across the ecosystem.
+`VAccordion`/`HAccordion` to retire the pattern across the ecosystem.

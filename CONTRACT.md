@@ -42,7 +42,7 @@ owns it as **ephemeral** state and never surfaces it.
 
 `Select` is the worked example: its `selected` value is app-meaningful, so it is
 controlled; its dropdown-`open` flag and typeahead `query` are transient, so the
-widget keeps them in `State` and emits nothing about them. Contrast `Accordion`,
+widget keeps them in `State` and emits nothing about them. Contrast `VAccordion`,
 where `open` *is* controlled — because a collapsed panel is layout the app wants
 to own, persist, and drive (Triggerfish stores it in grid state). Same word,
 "open", opposite tier, decided entirely by whether the app cares.
@@ -96,7 +96,7 @@ Toggle -> do
 
 Triggerfish hand-rolls exactly this (its `markTap` / `lastTapMicros` machinery)
 to stop a 30 fps re-render from double-dispatching a panel toggle. In this
-library that machinery is *inside* `Accordion`; consumers never write it again.
+library that machinery is *inside* `VAccordion`; consumers never write it again.
 
 ### 4. Uniform exports — the skeleton
 
@@ -144,9 +144,11 @@ So the contract has two tiers:
   A thin chrome helper may compose "header slot + conditional body" for
   ergonomics, but the interactive part is always a proper leaf component.
 
-`Accordion` is the worked example: it is the controlled, debounced **header**
-(open header, or a collapsed tab); the panel body stays with the parent, which
-owns `open` anyway. This honours "full component for the interactive part"
+`VAccordion` (and its column-laid sibling `HAccordion`) is the worked example:
+it is the controlled, debounced **header** (open header, or a collapsed tab); the
+panel body stays with the parent, which owns `open` anyway. The two share one
+internal core and differ only in collapsed rendering. This honours "full
+component for the interactive part"
 without pretending the type system has a children channel it doesn't.
 
 ## Checklist for a new widget

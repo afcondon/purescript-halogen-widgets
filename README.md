@@ -5,9 +5,10 @@ controlled component contract**. An old-fashioned widget toolkit, on purpose:
 the value is not any single widget but that every widget obeys the same small
 rail, so the next one is predictable to author and safe to delegate.
 
-> Status: **v0.1, contract-settled.** Ten widgets ship — six leaf components
-> (`Accordion`, `Toggle`, `Stepper`, `Slider`, `SegmentedControl`, `Select`) and
-> four chrome functions (`Panel`, `Field`, `Modal`, `Toast`) — all compiling, all
+> Status: **v0.1, contract-settled.** The leaf components
+> (`VAccordion` / `HAccordion`, `Toggle`, `Stepper`, `Slider`, `Knob`,
+> `DoubleKnob`, `SegmentedControl`, `Select`) and the chrome functions
+> (`Panel`, `Field`, `Modal`, `Toast`) — all compiling, all
 > on the one contract, with a type-level smoke test. The roster is the
 > beginning, not the end; see [WIDGETS.md](./WIDGETS.md).
 
@@ -49,26 +50,29 @@ it by setting `data-theme="light" | "dark"` on a host element (usually `<html>`)
 No PureScript changes, no per-widget props — recolour by overriding variables.
 The showcase's header toggle does exactly this.
 
-## Worked example: `Accordion`
+## Worked example: `VAccordion`
 
-`Accordion` is the reference instance — a controlled, self-debouncing disclosure
-header. One `Accordion` is one panel's *header* (the parent owns `open` and
-renders the body). Sketch of use from a parent component:
+`VAccordion` is the reference instance — a controlled, self-debouncing disclosure
+header. One `VAccordion` is one panel's *header* (the parent owns `open` and
+renders the body). It ships alongside `HAccordion`, identical in contract but
+collapsing to a side-by-side column spine instead of a stacked row; reach for
+`VAccordion` unless you are laying panels out as columns. Sketch of use from a
+parent component:
 
 ```purescript
-import Hylograph.Halogen.UI.Accordion as Accordion
+import Hylograph.Halogen.UI.VAccordion as VAccordion
 
-type Slots = ( generate :: Accordion.Slot Unit )
+type Slots = ( generate :: VAccordion.Slot Unit )
 
 renderPanel :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderPanel s =
   HH.div_
-    ( [ HH.slot (Proxy :: _ "generate") unit Accordion.component
-          (Accordion.defaultInput "GENERATE")
+    ( [ HH.slot (Proxy :: _ "generate") unit VAccordion.component
+          (VAccordion.defaultInput "GENERATE")
             { open = not (elem "GENERATE" s.collapsed)
             , sub = Just (show (length s.gen) <> " sources")
             }
-          \(Accordion.Toggled wantOpen) -> SetPanelOpen "GENERATE" wantOpen
+          \(VAccordion.Toggled wantOpen) -> SetPanelOpen "GENERATE" wantOpen
       ]
       -- the parent owns `open`, so the parent renders the body:
       <> if elem "GENERATE" s.collapsed then [] else [ generatePanelBody s ]

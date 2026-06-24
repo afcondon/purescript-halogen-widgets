@@ -16,10 +16,13 @@ Each exports `Input`, `Output(..)`, `Query(..)`, `Slot`, `component`,
 
 | Module | Controlled value | `Output` | Notes |
 |---|---|---|---|
-| `Accordion` | `open :: Boolean` | `Toggled Boolean` | The reference instance. Open header / collapsed tab; **self-debounced toggle** (`debounce :: Milliseconds`, default 120 ms) absorbs Triggerfish's `markTap`. Parent renders the body. |
+| `VAccordion` | `open :: Boolean` | `Toggled Boolean` | The reference instance. **Vertical** (stacked rows): full-width header, chevron ▾→▸ on collapse; **self-debounced toggle** (`debounce :: Milliseconds`, default 120 ms) absorbs Triggerfish's `markTap`. Parent renders the body. |
+| `HAccordion` | `open :: Boolean` | `Toggled Boolean` | **Horizontal** sibling: panels as side-by-side columns; a collapsed panel folds to a thin rotated spine. Same contract and internal core as `VAccordion`; only collapsed rendering differs. |
 | `Toggle` | `value :: Boolean` | `Changed Boolean` | The minimal instance — no ephemeral state. Switch track + knob, optional label. |
 | `Stepper` | `value :: Int` | `Changed Int` | `‹ value ›` with clamped `min`/`max`/`step`. Arrows disable at the bounds. |
 | `Slider` | `value :: Number` | `Changed Number` | Range input, **self-debounced** (`debounce`, default 80 ms) because a drag floods input events. `0.0` emits every step. |
+| `Knob` | `value :: Number` | `Changed Number` | Vertical-drag rotary, 140 px = full range, 300° sweep, pure SVG. **Default debounce 0** — the read-back is the gesture feedback. |
+| `DoubleKnob` | `outer`, `inner :: Layer` | `OuterChanged` / `InnerChanged Number` | Concentric two-layer knob (Strymon / Chase Bliss). Each layer dragged independently; the tag says which. |
 | `SegmentedControl` | `active :: String` | `Selected String` | Tab/segment selector. Parent owns `active` **and renders the pane** — the control is only the selector. |
 | `Select` | `selected :: Maybe String` | `Selected String` | Single-select dropdown, optional `searchable` typeahead. `selected` is controlled; **`open`/`query` are ephemeral** interaction state the widget owns. |
 
@@ -40,7 +43,7 @@ rule 5). Each is `forall w i. Config -> … -> HH.HTML w i`.
 Follow the checklist at the end of CONTRACT.md. Decide the tier first: if the
 widget owns no caller content, it's a **leaf component**; if it wraps
 caller-owned interactive content, it's a **chrome function** (or a
-controlled-header leaf where the parent renders the body, as `Accordion` and
+controlled-header leaf where the parent renders the body, as `VAccordion` and
 `SegmentedControl` do). Pin its full surface into `test/Main.purs` so a
 signature regression fails the build.
 

@@ -1,26 +1,33 @@
--- | A controlled disclosure header — the reference instance of the library
--- | contract (see CONTRACT.md).
+-- | Shared core for the two accordion orientations. Not a widget itself — it
+-- | carries no public `component`; the orientation-fixed `VAccordion` and
+-- | `HAccordion` modules wrap `mkComponent` and re-export this surface so each
+-- | satisfies the uniform-exports rule (CONTRACT.md rule 4).
 -- |
--- | One `Accordion` is **one panel's interactive header**: an open header
--- | (label · optional sub · ▾) or, when collapsed, a thin rotated tab (▸).
--- | Clicking either emits `Toggled` carrying the requested new `open` value;
--- | the component never flips its own state. The PARENT owns `open` and renders
--- | the panel BODY itself (`if open then [body] else []`) — see rule 5 in
--- | CONTRACT.md for why the body cannot live inside the component.
+-- | One accordion is **one panel's interactive header**. Clicking it emits
+-- | `Toggled` carrying the requested new `open` value; the component never flips
+-- | its own state. The PARENT owns `open` and renders the panel BODY itself
+-- | (`if open then [body] else []`) — see CONTRACT.md rule 5.
 -- |
 -- | The toggle is debounced inside the component (configurable via
--- | `Input.debounce`). This is the machinery Triggerfish hand-rolls as
--- | `markTap` / `lastTapMicros` to stop a 30 fps re-render double-dispatch from
--- | cancelling a panel flip — here it is absorbed once, for everyone.
+-- | `Input.debounce`) — the machinery Triggerfish hand-rolls as `markTap` /
+-- | `lastTapMicros` to stop a 30 fps re-render double-dispatch from cancelling a
+-- | panel flip, absorbed once for everyone.
 -- |
--- | A multi-panel accordion is N of these sharing a parent-owned open-set
--- | (exactly Triggerfish's `collapsed :: Array String`).
-module Hylograph.Halogen.UI.Accordion
+-- | **Orientation** is the only thing the two wrappers differ on, and it changes
+-- | only the *collapsed* rendering:
+-- |
+-- |   * `Vertical` — panels stack top-to-bottom. The header is always a
+-- |     full-width horizontal bar; collapsing just hides the parent's body and
+-- |     flips the chevron (▾ → ▸). This is the common web accordion.
+-- |   * `Horizontal` — panels sit side-by-side as columns (Triggerfish). A
+-- |     collapsed panel shrinks to a thin vertical strip with a rotated label.
+module Hylograph.Halogen.UI.Accordion.Internal
   ( Input
   , Output(..)
   , Query(..)
   , Slot
-  , component
+  , Orientation(..)
+  , mkComponent
   , defaultInput
   ) where
 
@@ -65,6 +72,9 @@ data Query a = SetOpen Boolean a
 
 type Slot = H.Slot Query Output
 
+-- | Which way the accordion lays out. Fixed per-component by the wrapper.
+data Orientation = Vertical | Horizontal
+
 data Action
   = Receive Input
   | Toggle
@@ -76,11 +86,12 @@ type State =
   , version :: Int
   }
 
-component :: forall m. MonadAff m => H.Component Query Input Output m
-component =
+-- | Build an accordion component fixed to one orientation.
+mkComponent :: forall m. MonadAff m => Orientation -> H.Component Query Input Output m
+mkComponent orientation =
   H.mkComponent
     { initialState: \input -> { input, version: 0 }
-    , render
+    , render: render orientation
     , eval: H.mkEval H.defaultEval
         { handleAction = handleAction
         , handleQuery = handleQuery
@@ -114,36 +125,44 @@ handleQuery = case _ of
     when (not st.input.disabled) (H.raise (Toggled b))
     pure (Just a)
 
-render :: forall m. State -> H.ComponentHTML Action () m
-render { input } =
-  if input.open then headerOpen input else headerCollapsed input
+render :: forall m. Orientation -> State -> H.ComponentHTML Action () m
+render orientation { input } = case orientation of
+  -- Vertical never rotates: the header is always a full-width bar, open or not.
+  Vertical -> headerBar input
+  -- Horizontal collapses to a thin rotated strip; open is the same bar.
+  Horizontal ->
+    if input.open then headerBar input else headerCollapsedStrip input
 
--- | The open-panel header: label on the left, optional sub + chevron on the
--- | right. Clicking requests a collapse.
-headerOpen :: forall m. Input -> H.ComponentHTML Action () m
-headerOpen input =
+-- | The full-width horizontal header bar: label on the left, optional sub +
+-- | chevron on the right. The chevron glyph reflects `open` (▾ open, ▸ closed),
+-- | and the bottom rule shows only while open. Clicking requests a toggle.
+headerBar :: forall m. Input -> H.ComponentHTML Action () m
+headerBar input =
   HH.div
-    [ clss [ "hg-accordion", "hg-accordion--open" ]
+    [ clss [ "hg-accordion", if input.open then "hg-accordion--open" else "hg-accordion--collapsed" ]
     , HE.onClick \_ -> Toggle
-    , sty $ rowBase input <> ";justify-content:space-between;padding:6px 2px;border-bottom:1px solid " <> line
+    , sty $ rowBase input
+        <> ";justify-content:space-between;padding:6px 2px"
+        <> (if input.open then ";border-bottom:1px solid " <> line else "")
     ]
     [ HH.span [ cls "hg-accordion__label", sty $ "font-weight:600;color:" <> ink ]
         [ HH.text input.label ]
     , HH.span [ sty $ "display:flex;gap:8px;align-items:baseline;font-size:0.85em;color:" <> inkSoft ]
         [ maybe (HH.text "") (\s -> HH.span [ cls "hg-accordion__sub" ] [ HH.text s ]) input.sub
-        , HH.span [ cls "hg-accordion__chevron" ] [ HH.text "▾" ]
+        , HH.span [ cls "hg-accordion__chevron" ]
+            [ HH.text (if input.open then "▾" else "▸") ]
         ]
     ]
 
--- | The collapsed tab: a thin, full-height strip with the rotated label.
--- | Clicking requests an expand.
-headerCollapsed :: forall m. Input -> H.ComponentHTML Action () m
-headerCollapsed input =
+-- | The collapsed strip for a HORIZONTAL accordion: a thin, full-height column
+-- | with the rotated label. Clicking requests an expand.
+headerCollapsedStrip :: forall m. Input -> H.ComponentHTML Action () m
+headerCollapsedStrip input =
   HH.div
-    [ clss [ "hg-accordion", "hg-accordion--collapsed" ]
+    [ clss [ "hg-accordion", "hg-accordion--collapsed", "hg-accordion--strip" ]
     , HE.onClick \_ -> Toggle
     , sty $ rowBase input
-        <> ";flex:0 0 30px;min-width:30px;justify-content:center;align-items:center"
+        <> ";width:30px;min-width:30px;height:100%;justify-content:center;align-items:center"
     ]
     [ HH.span
         [ cls "hg-accordion__label"
