@@ -39,6 +39,7 @@ import Hylograph.Halogen.UI.Knob as Knob
 import Hylograph.Halogen.UI.DoubleKnob as DoubleKnob
 import Hylograph.Halogen.UI.SegmentedControl as Segmented
 import Hylograph.Halogen.UI.Select as Select
+import Hylograph.Halogen.UI.Compare as Compare
 import Hylograph.Halogen.UI.Modal as Modal
 import Hylograph.Halogen.UI.Panel as Panel
 import Hylograph.Halogen.UI.Field as Field
@@ -88,6 +89,7 @@ type Slots =
   , doubleKnob :: DoubleKnob.Slot Unit
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
+  , compare :: Compare.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
   )
 
@@ -118,6 +120,9 @@ _segmented = Proxy
 _select :: Proxy "select"
 _select = Proxy
 
+_compare :: Proxy "compare"
+_compare = Proxy
+
 _themeSwitch :: Proxy "themeSwitch"
 _themeSwitch = Proxy
 
@@ -133,6 +138,7 @@ type State =
   , doubleOuter :: Number
   , doubleInner :: Number
   , segment :: String
+  , comparePos :: Number
   , selected :: Maybe String
   , modalOpen :: Boolean
   , toastShown :: Boolean
@@ -150,6 +156,7 @@ initialState =
   , doubleOuter: 70.0
   , doubleInner: 30.0
   , segment: "list"
+  , comparePos: 50.0
   , selected: Nothing
   , modalOpen: false
   , toastShown: false
@@ -167,6 +174,7 @@ data Action
   | DoubleOuterChanged Number
   | DoubleInnerChanged Number
   | SegSelected String
+  | CompareMoved Number
   | SelSelected String
   | OpenModal
   | CloseModal
@@ -211,6 +219,7 @@ handleAction = case _ of
   DoubleOuterChanged v -> H.modify_ _ { doubleOuter = v }
   DoubleInnerChanged v -> H.modify_ _ { doubleInner = v }
   SegSelected k -> H.modify_ _ { segment = k }
+  CompareMoved p -> H.modify_ _ { comparePos = p }
   SelSelected v -> H.modify_ _ { selected = Just v }
   OpenModal -> H.modify_ _ { modalOpen = true }
   CloseModal -> H.modify_ _ { modalOpen = false }
@@ -261,6 +270,7 @@ navColumn =
     , navLink "doubleknob" "DoubleKnob"
     , navLink "segmented" "Segmented"
     , navLink "select" "Select"
+    , navLink "compare" "Compare"
     , HH.div [ cls "nav-group" ] [ HH.text "Chrome functions" ]
     , navLink "panel" "Panel"
     , navLink "field" "Field"
@@ -457,6 +467,45 @@ hAccordionDemo st =
           else HH.text ""
       ]
 
+-- | A static faux settings panel, rendered two ways for the Compare demo:
+-- | `hyper = false` is generic-startup vanilla; `hyper = true` is the
+-- | Hylograph treatment. Inert PlainHTML (no actions) — exactly what a
+-- | comparison wipe wants on each side.
+comparePanel :: Boolean -> HH.PlainHTML
+comparePanel hyper =
+  let
+    bg     = if hyper then "#f1ede2" else "#e8e8e8"
+    card   = if hyper then "#faf7ef" else "#ffffff"
+    ink    = if hyper then "#16140f" else "#333333"
+    soft   = if hyper then "#6f6857" else "#8a8a8a"
+    accent = if hyper then "#d6442b" else "#5b8def"
+    font   = if hyper then "'Helvetica Neue',Helvetica,Arial,sans-serif" else "Georgia,'Times New Roman',serif"
+    rad    = if hyper then "2px" else "8px"
+    ls     = if hyper then "0.08em" else "0"
+    row label val frac =
+      HH.div [ sty "display:flex;align-items:center;gap:12px;margin-bottom:13px" ]
+        [ HH.div [ sty $ "width:48px;font-size:12px;color:" <> soft ] [ HH.text label ]
+        , HH.div [ sty $ "flex:1;height:6px;border-radius:99px;background:" <> card
+                     <> ";border:1px solid rgba(0,0,0,0.08);position:relative;overflow:hidden" ]
+            [ HH.div [ sty $ "position:absolute;top:0;left:0;bottom:0;width:" <> show (frac * 100.0)
+                         <> "%;background:" <> accent ] [] ]
+        , HH.div [ sty $ "width:36px;text-align:right;font-size:11px;color:" <> ink ] [ HH.text val ]
+        ]
+  in
+  HH.div
+    [ sty $ "width:100%;height:100%;box-sizing:border-box;padding:26px 28px;"
+        <> "background:" <> bg <> ";color:" <> ink <> ";font-family:" <> font ]
+    [ HH.div [ sty $ "font-size:13px;font-weight:700;letter-spacing:" <> ls <> ";margin-bottom:18px" ]
+        [ HH.text (if hyper then "OUTPUT ROUTING" else "Output Settings") ]
+    , row "Gain" "72%" 0.72
+    , row "Tone" "40%" 0.40
+    , row "Mix" "55%" 0.55
+    , HH.div
+        [ sty $ "margin-top:16px;display:inline-block;padding:7px 16px;border-radius:" <> rad
+            <> ";background:" <> accent <> ";color:#fff;font-size:12px;font-weight:600;letter-spacing:" <> ls ]
+        [ HH.text (if hyper then "APPLY" else "Apply") ]
+    ]
+
 stories :: forall m. MonadAff m => State -> Array (H.ComponentHTML Action Slots m)
 stories st =
   [ story st
@@ -568,6 +617,19 @@ stories st =
               , { value: "rample", label: "Rample" }
               ]) { selected = st.selected, searchable = true, placeholder = "Choose a module…" })
           (\(Select.Selected v) -> SelSelected v)
+      )
+  , story st
+      { anchor: "compare", title: "Compare", tier: "leaf · controlled"
+      , blurb: "A before/after comparison wipe. The two layers are static `PlainHTML` — comparing renderings, not interacting through them — which is what lets it be a leaf component: the widget owns the drag, the layers arrive inert. Drag the handle."
+      , code: compareCode }
+      ( HH.slot _compare unit Compare.component
+          ((Compare.defaultInput (comparePanel false) (comparePanel true))
+            { position = st.comparePos
+            , height = "240px"
+            , beforeLabel = Just "Vanilla"
+            , afterLabel = Just "Hylograph"
+            })
+          (\(Compare.Moved p) -> CompareMoved p)
       )
   , story st
       { anchor: "panel", title: "Panel", tier: "chrome function"
@@ -696,6 +758,13 @@ allContracts =
         [ TypeSyn "Option" "Record ( value :: String, label :: String )"
         , TypeSyn "Input" "Record ( options :: Array Option, selected :: Maybe String, placeholder :: String, searchable :: Boolean, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "compare"
+    , fragments:
+        [ TypeSyn "Input" "Record ( position :: Number, before :: PlainHTML, after :: PlainHTML, height :: String, beforeLabel :: Maybe String, afterLabel :: Maybe String, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Moved", args: [ "Number" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
     }
@@ -855,6 +924,16 @@ HH.slot _select unit Select.component
     , searchable = true
     , placeholder = "Choose a module…" }
   (\(Select.Selected v) -> SelSelected v)"""
+
+compareCode :: String
+compareCode =
+  """-- the two layers are static PlainHTML; the parent owns the divider
+HH.slot _compare unit Compare.component
+  (Compare.defaultInput beforeHtml afterHtml)
+    { position = state.comparePos
+    , beforeLabel = Just "Vanilla"
+    , afterLabel = Just "Hylograph" }
+  (\(Compare.Moved p) -> CompareMoved p)"""
 
 panelCode :: String
 panelCode =

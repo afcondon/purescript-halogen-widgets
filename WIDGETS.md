@@ -25,6 +25,7 @@ Each exports `Input`, `Output(..)`, `Query(..)`, `Slot`, `component`,
 | `DoubleKnob` | `outer`, `inner :: Layer` | `OuterChanged` / `InnerChanged Number` | Concentric two-layer knob (Strymon / Chase Bliss). Each layer dragged independently; the tag says which. |
 | `SegmentedControl` | `active :: String` | `Selected String` | Tab/segment selector. Parent owns `active` **and renders the pane** — the control is only the selector. |
 | `Select` | `selected :: Maybe String` | `Selected String` | Single-select dropdown, optional `searchable` typeahead. `selected` is controlled; **`open`/`query` are ephemeral** interaction state the widget owns. |
+| `Compare` | `position :: Number` | `Moved Number` | Before/after comparison wipe (draggable divider). The two layers are **static `HH.PlainHTML`** in `Input` — comparing renderings, not interacting through them — which is what lets a divider-drag widget sit on the leaf contract. The widget owns the drag (document mousemove + `getBoundingClientRect`). |
 
 ## Chrome functions (action-polymorphic)
 

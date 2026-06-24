@@ -7,8 +7,8 @@ rail, so the next one is predictable to author and safe to delegate.
 
 > Status: **v0.1, contract-settled.** The leaf components
 > (`VAccordion` / `HAccordion`, `Toggle`, `Stepper`, `Slider`, `Knob`,
-> `DoubleKnob`, `SegmentedControl`, `Select`) and the chrome functions
-> (`Panel`, `Field`, `Modal`, `Toast`) — all compiling, all
+> `DoubleKnob`, `SegmentedControl`, `Select`, `Compare`) and the chrome
+> functions (`Panel`, `Field`, `Modal`, `Toast`) — all compiling, all
 > on the one contract, with a type-level smoke test. The roster is the
 > beginning, not the end; see [WIDGETS.md](./WIDGETS.md).
 

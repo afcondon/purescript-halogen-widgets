@@ -2,7 +2,7 @@
 
 Load the **`hylograph-halogen-ui`** widget toolkit into context for *consuming*
 the library in a Halogen app — wiring widgets, owning their state, raising
-their `Output` back into your `Action`. Twelve widgets on one uniform controlled
+their `Output` back into your `Action`. Fourteen widgets on one uniform controlled
 contract; the value of the library is the rail, not any single widget. Pair
 with `/halogen-hooks` for behaviour-level state inside hand-rolled code.
 
@@ -74,6 +74,7 @@ see them in every widget's surface.
 | `DoubleKnob` | `outer :: Layer`, `inner :: Layer` | `OuterChanged Number` / `InnerChanged Number` | Concentric two-layer knob (Strymon / Chase Bliss pattern). Each layer independently dragged; tag tells you which. |
 | `SegmentedControl` | `active :: String` | `Selected String` | Tab-bar selector. **Parent owns `active` AND renders the pane** — control is only the selector. |
 | `Select` | `selected :: Maybe String` | `Selected String` | Dropdown, optional `searchable` typeahead. `selected` controlled; `open`/`query` are *ephemeral* (widget owns them). |
+| `Compare` | `position :: Number` | `Moved Number` | Before/after comparison wipe. The two layers are static `HH.PlainHTML` in `Input` (`before`/`after`) — comparing renderings, not interacting through them — which is exactly what lets a draggable-divider widget be a leaf component. The widget owns the drag. |
 
 ### Chrome functions (render functions polymorphic in the caller's action)
 
@@ -217,6 +218,10 @@ don't get it automatically.
   higher.
 - **`SegmentedControl` only renders the selector** — you render the pane.
   Same for the accordions (parent renders the body).
+- **`Compare`'s layers are `PlainHTML`, not slots.** Pass static content
+  (`HH.img`, a styled `HH.div`, highlighted code) as `before`/`after` — they
+  carry no actions. That is deliberate: a comparison wipe compares renderings.
+  If you need interaction on one side, it doesn't belong in a `Compare`.
 - **Two accordions, one contract.** `VAccordion` stacks rows (default);
   `HAccordion` lays out columns and folds to a rotated spine. Pick by layout,
   not behaviour — they share an internal core. A `rotate(-90deg)` collapsed

@@ -21,6 +21,7 @@ import Hylograph.Halogen.UI.Knob as Knob
 import Hylograph.Halogen.UI.DoubleKnob as DoubleKnob
 import Hylograph.Halogen.UI.SegmentedControl as Segmented
 import Hylograph.Halogen.UI.Select as Select
+import Hylograph.Halogen.UI.Compare as Compare
 import Hylograph.Halogen.UI.Modal as Modal
 import Hylograph.Halogen.UI.Panel as Panel
 import Hylograph.Halogen.UI.Field as Field
@@ -43,6 +44,7 @@ checks =
     && seen (DoubleKnob.component :: H.Component DoubleKnob.Query DoubleKnob.Input DoubleKnob.Output Aff)
     && seen (Segmented.component :: H.Component Segmented.Query Segmented.Input Segmented.Output Aff)
     && seen (Select.component :: H.Component Select.Query Select.Input Select.Output Aff)
+    && seen (Compare.component :: H.Component Compare.Query Compare.Input Compare.Output Aff)
     -- Chrome functions, applied to concrete args.
     && seen (Modal.modal { open: false, title: "t", onClose: unit } [] :: HH.HTML Unit Unit)
     && seen (Panel.panel { title: "t", sub: Nothing } [] :: HH.HTML Unit Unit)
@@ -55,6 +57,7 @@ checks =
     && (Knob.defaultInput 0.0).ticks == 0
     && (DoubleKnob.defaultInput 0.0 0.0).outer.value == 0.0
     && (Select.defaultInput []).searchable == false
+    && (Compare.defaultInput (HH.text "a") (HH.text "b")).position == 50.0
     && (VAccordion.defaultInput "GENERATE").open == true
     && (HAccordion.defaultInput "GENERATE").open == true
 
