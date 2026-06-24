@@ -6,8 +6,10 @@ module Showcase (component) where
 
 import Prelude
 
-import Data.Array (find, mapMaybe, mapWithIndex)
+import Data.Array (elem, filter, find, mapMaybe, mapWithIndex)
 import Data.Int as Int
+import Data.String as Str
+import Data.String.Pattern (Pattern(..))
 import Data.Foldable (traverse_)
 import Data.FoldableWithIndex (forWithIndex_)
 import Data.Maybe (Maybe(..))
@@ -85,6 +87,7 @@ type Slots =
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
+  , contractFold :: Accordion.Slot String
   )
 
 _accordion :: Proxy "accordion"
@@ -114,6 +117,9 @@ _select = Proxy
 _themeSwitch :: Proxy "themeSwitch"
 _themeSwitch = Proxy
 
+_contractFold :: Proxy "contractFold"
+_contractFold = Proxy
+
 type State =
   { theme :: Theme
   , accordionOpen :: Boolean
@@ -123,6 +129,8 @@ type State =
   , knob :: Number
   , doubleOuter :: Number
   , doubleInner :: Number
+  -- Story slugs whose contract block is currently folded (Triggerfish pattern).
+  , closedContracts :: Array String
   , segment :: String
   , selected :: Maybe String
   , modalOpen :: Boolean
@@ -139,6 +147,7 @@ initialState =
   , knob: 65.0
   , doubleOuter: 70.0
   , doubleInner: 30.0
+  , closedContracts: []
   , segment: "list"
   , selected: Nothing
   , modalOpen: false
@@ -155,6 +164,7 @@ data Action
   | KnobChanged Number
   | DoubleOuterChanged Number
   | DoubleInnerChanged Number
+  | ToggleContract String Boolean
   | SegSelected String
   | SelSelected String
   | OpenModal
@@ -196,6 +206,20 @@ handleAction = case _ of
   KnobChanged v -> H.modify_ _ { knob = v }
   DoubleOuterChanged v -> H.modify_ _ { doubleOuter = v }
   DoubleInnerChanged v -> H.modify_ _ { doubleInner = v }
+  ToggleContract slug wantOpen -> do
+    H.modify_ \s -> s
+      { closedContracts =
+          if wantOpen
+            then filter (_ /= slug) s.closedContracts
+            else if elem slug s.closedContracts
+                   then s.closedContracts
+                   else s.closedContracts <> [ slug ]
+      }
+    -- Re-inject Sigil once the placeholder is back in the VDOM. 0-delay yields
+    -- the event loop so Halogen renders the new structure before injection.
+    when wantOpen $ void $ H.fork do
+      liftAff (delay (Milliseconds 0.0))
+      liftEffect renderAllContracts
   SegSelected k -> H.modify_ _ { segment = k }
   SelSelected v -> H.modify_ _ { selected = Just v }
   OpenModal -> H.modify_ _ { modalOpen = true }
@@ -262,30 +286,75 @@ navLink anchor label =
 -- | side by side.
 story
   :: forall m
-   . Theme
+   . MonadAff m
+  => State
   -> { anchor :: String, title :: String, tier :: String, blurb :: String, code :: String }
   -> H.ComponentHTML Action Slots m
   -> H.ComponentHTML Action Slots m
-story theme meta demo =
+story st meta demo =
   HH.section [ HP.id meta.anchor, cls "story" ]
     ( [ HH.div [ cls "story-head" ]
           [ HH.h2_ [ HH.text meta.title ]
           , HH.span [ cls "tier" ] [ HH.text meta.tier ]
           ]
       , HH.p [ cls "blurb" ] [ HH.text meta.blurb ]
+      -- Demo gets the centre of attention: wide, centred, generous padding.
+      , HH.div [ cls "story-stage" ] [ demo ]
       ]
-      -- The typeset contract appears only in Hylograph mode; this mode promises
-      -- refinement and gives you something the others don't.
-      <> (case theme, findContract meta.anchor of
-            Hylograph, Just c -> [ contractPlaceholders c ]
-            _, _ -> [])
+      -- The Sigil-typeset contract is Hylograph-only AND collapsible, via OUR
+      -- Accordion — the showcase dogfoods the widget it's documenting.
+      <> contractBlock st meta.anchor
       <>
-      [ HH.div [ cls "story-grid" ]
-          [ HH.div [ cls "stage" ] [ demo ]
-          , HH.pre [ cls "code" ] [ HH.code_ [ HH.text meta.code ] ]
-          ]
+      -- Usage code, always visible, wrapped in OUR Panel for chrome consistency.
+      [ Panel.panel { title: "Usage", sub: Nothing }
+          [ HH.pre [ cls "code" ] (codeLines meta.code) ]
       ]
     )
+
+-- | The contract section: only rendered in Hylograph mode. The Accordion is
+-- | controlled — parent owns `open` in `closedContracts`. When the body is
+-- | visible we mount the Sigil placeholders, which `renderAllContracts` then
+-- | fills via querySelector.
+contractBlock
+  :: forall m
+   . MonadAff m
+  => State -> String -> Array (H.ComponentHTML Action Slots m)
+contractBlock st slug = case st.theme, findContract slug of
+  Hylograph, Just c ->
+    let isOpen = not (elem slug st.closedContracts) in
+    [ HH.div [ cls "story-contract-wrap" ]
+        ( [ HH.slot _contractFold slug Accordion.component
+              ((Accordion.defaultInput "Type contract")
+                { open = isOpen, sub = Just "typeset by Sigil" })
+              (\(Accordion.Toggled o) -> ToggleContract slug o)
+          ]
+          <> if isOpen then [ contractPlaceholders c ] else []
+        )
+    ]
+  _, _ -> []
+
+-- | A minimum-viable PureScript "highlight": comment lines (whole lines whose
+-- | trimmed prefix is `--`) get a different class so they read greyer and
+-- | italic. Anything richer (keyword/string/type colouring) wants a real
+-- | tokenizer — punt until needed.
+codeLines :: forall w i. String -> Array (HH.HTML w i)
+codeLines src =
+  let
+    raw = Str.split (Pattern "\n") src
+    -- Re-emit newlines between lines so `<pre>` preserves layout.
+    withSep = mapWithIndex
+      (\i line ->
+         let nl = if i == 0 then "" else "\n"
+             txt = nl <> line
+         in if isCommentLine line
+              then HH.span [ cls "tok-comment" ] [ HH.text txt ]
+              else HH.text txt)
+      raw
+  in
+    [ HH.code_ withSep ]
+
+isCommentLine :: String -> Boolean
+isCommentLine line = Str.take 2 (Str.trim line) == "--"
 
 btn :: forall w i. i -> String -> HH.HTML w i
 btn act label =
@@ -298,7 +367,7 @@ btn act label =
 
 stories :: forall m. MonadAff m => State -> Array (H.ComponentHTML Action Slots m)
 stories st =
-  [ story st.theme
+  [ story st
       { anchor: "accordion", title: "Accordion", tier: "leaf · controlled-header"
       , blurb: "A controlled disclosure header with a self-debounced toggle. The parent owns `open` and renders the body itself."
       , code: accordionCode }
@@ -312,7 +381,7 @@ stories st =
               else HH.text ""
           ]
       )
-  , story st.theme
+  , story st
       { anchor: "toggle", title: "Toggle", tier: "leaf · controlled"
       , blurb: "The minimal instance of the contract — no ephemeral state at all. The parent owns `value`."
       , code: toggleCode }
@@ -320,7 +389,7 @@ stories st =
           ((Toggle.defaultInput st.toggleOn) { label = Just (if st.toggleOn then "Enabled" else "Disabled") })
           (\(Toggle.Changed v) -> TogChanged v)
       )
-  , story st.theme
+  , story st
       { anchor: "stepper", title: "Stepper", tier: "leaf · controlled"
       , blurb: "A clamped integer stepper; the arrows disable at the bounds."
       , code: stepperCode }
@@ -328,7 +397,7 @@ stories st =
           ((Stepper.defaultInput st.stepper) { min = 0, max = 12 })
           (\(Stepper.Changed v) -> StepChanged v)
       )
-  , story st.theme
+  , story st
       { anchor: "slider", title: "Slider", tier: "leaf · controlled · debounced"
       , blurb: "A range slider, debounced inside the widget because a drag floods input events. The value below updates as the parent honours each request."
       , code: sliderCode }
@@ -340,7 +409,7 @@ stories st =
               [ HH.text ("value: " <> show st.slider) ]
           ]
       )
-  , story st.theme
+  , story st
       { anchor: "knob", title: "Knob", tier: "leaf · controlled · debounced · SVG"
       , blurb: "A rotary knob — vertical drag changes the value (140 px = full range). Self-debounced. Geometry ported from producing-with-your-feet's Donut via Triggerfish; pure SVG, no chart library."
       , code: knobCode }
@@ -355,7 +424,7 @@ stories st =
               [ HH.text ("value: " <> show (Int.round st.knob)) ]
           ]
       )
-  , story st.theme
+  , story st
       { anchor: "doubleknob", title: "DoubleKnob", tier: "leaf · controlled · two layers · SVG"
       , blurb: "The Strymon / Chase Bliss pattern: one physical knob hosts two parameters. Outer ring + inner ring, each with its own drag and its own emitted value. `Output` is a sum tagged by layer."
       , code: doubleKnobCode }
@@ -372,7 +441,7 @@ stories st =
                   <> "   depth: " <> show (Int.round st.doubleInner) ]
           ]
       )
-  , story st.theme
+  , story st
       { anchor: "segmented", title: "SegmentedControl", tier: "leaf · controlled-header"
       , blurb: "A tab/segment selector. The parent owns `active` and renders the corresponding pane — the control is only the selector."
       , code: segmentedCode }
@@ -388,7 +457,7 @@ stories st =
               [ HH.text ("Parent renders pane: " <> st.segment) ]
           ]
       )
-  , story st.theme
+  , story st
       { anchor: "select", title: "Select", tier: "leaf · controlled + ephemeral"
       , blurb: "A typeahead dropdown. `selected` is controlled (app-meaningful); `open` and the filter `query` are ephemeral interaction state the widget owns."
       , code: selectCode }
@@ -401,7 +470,7 @@ stories st =
               ]) { selected = st.selected, searchable = true, placeholder = "Choose a module…" })
           (\(Select.Selected v) -> SelSelected v)
       )
-  , story st.theme
+  , story st
       { anchor: "panel", title: "Panel", tier: "chrome function"
       , blurb: "A titled surface wrapping caller content. A render function, polymorphic in your action — so the body threads straight through."
       , code: panelCode }
@@ -410,7 +479,7 @@ stories st =
               [ HH.text "Any caller content sits inside the titled surface." ]
           ]
       )
-  , story st.theme
+  , story st
       { anchor: "field", title: "Field", tier: "chrome function"
       , blurb: "A labelled form row: label, control, optional hint."
       , code: fieldCode }
@@ -421,12 +490,12 @@ stories st =
               ]
           )
       )
-  , story st.theme
+  , story st
       { anchor: "modal", title: "Modal", tier: "chrome function"
       , blurb: "An overlay dialog. The body and the `onClose` action thread through the chrome function; it renders nothing when closed."
       , code: modalCode }
       ( btn OpenModal "Open dialog" )
-  , story st.theme
+  , story st
       { anchor: "toast", title: "Toast", tier: "chrome function"
       , blurb: "A notification banner, coloured by `Variant`, with an optional dismiss that raises your action."
       , code: toastCode }
@@ -732,11 +801,6 @@ a { color: inherit; }
 .site-header__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .site-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
 .site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
-.story-contract { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 22px;
-  padding: 18px 20px; background: var(--hg-surface); border: 1px solid var(--hg-line);
-  border-radius: var(--hg-radius, 8px); }
-.story-contract__frag { font-size: 14px; }
-.story-contract__frag:empty { display: none; }
 .page { display: grid; grid-template-columns: 200px 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
 .nav { position: sticky; top: 0; align-self: start; padding: 40px 0 40px 32px; }
 .nav-group { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
@@ -745,21 +809,52 @@ a { color: inherit; }
 .nav-link { display: block; padding: 4px 0; text-decoration: none; font-size: 14px; }
 .nav-link:hover { color: var(--hg-accent); }
 .main { padding: 40px 32px 140px; min-width: 0; }
-.story { margin-bottom: 64px; scroll-margin-top: 24px; }
+.story { margin-bottom: 72px; scroll-margin-top: 24px; }
 .story-head { display: flex; align-items: baseline; gap: 12px; }
 .story-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
 .tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hg-ink-soft); }
-.blurb { margin: 8px 0 18px; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
-.story-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-.stage { display: flex; align-items: center; min-height: 96px; padding: 28px;
-  background: var(--hg-surface); border: 1px solid var(--hg-line); border-radius: var(--hg-radius, 10px);
+.blurb { margin: 8px 0 22px; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
+
+/* Stage: the live demo gets prominence — wide, centred, generous breath. This
+ * is the product; nothing else on the story competes with it. */
+.story-stage { display: flex; align-items: center; justify-content: center;
+  min-height: 160px; padding: 48px 32px; margin: 0 0 20px;
+  background: var(--hg-surface); border: 1px solid var(--hg-line);
+  border-radius: var(--hg-radius, 12px);
   transition: background 200ms ease, border-color 200ms ease; }
-pre.code { margin: 0; padding: 16px 18px; overflow: auto; background: var(--hg-surface-alt);
-  border: 1px solid var(--hg-line); border-radius: var(--hg-radius, 10px); color: var(--hg-ink);
-  font-family: 'SF Mono',Menlo,monospace; font-size: 12px; line-height: 1.6; }
+
+/* Contract block (Hylograph mode only). Its heading is OUR Accordion; the
+ * Sigil placeholders sit below it when open. Margin top is 0 because Accordion
+ * carries its own padding; the box wrap matches the stage/usage chrome. */
+.story-contract-wrap { margin: 0 0 20px; }
+.story-contract { display: flex; flex-direction: column; gap: 10px;
+  padding: 18px 22px 22px;
+  background: var(--hg-surface); border: 1px solid var(--hg-line); border-top: 0;
+  border-radius: 0 0 var(--hg-radius, 8px) var(--hg-radius, 8px); }
+.story-contract__frag { font-size: 14px; }
+.story-contract__frag:empty { display: none; }
+.story-contract-wrap .hg-accordion {
+  background: var(--hg-surface); padding: 12px 22px;
+  border: 1px solid var(--hg-line); border-bottom: 1px solid var(--hg-line);
+  border-radius: var(--hg-radius, 8px) var(--hg-radius, 8px) 0 0; }
+.story-contract-wrap .hg-accordion--open { border-bottom: 0; }
+.story-contract-wrap .hg-accordion + .story-contract { border-radius: 0 0 var(--hg-radius, 8px) var(--hg-radius, 8px); }
+/* If the contract is closed, the Accordion alone has the full rounded chrome. */
+.story-contract-wrap .hg-accordion:not(.hg-accordion--open) {
+  border-radius: var(--hg-radius, 8px); border-bottom: 1px solid var(--hg-line); }
+
+/* Usage code in a Panel (the library's own chrome). Code itself gets
+ * monospace ligatures, more breath, and comment-line styling. */
+.hg-panel.hg-panel { background: var(--hg-surface-alt); }
+pre.code { margin: 0; overflow: auto; color: var(--hg-ink);
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
+  font-feature-settings: "calt" 1, "liga" 1, "ss01" 1, "ss02" 1;
+  font-variant-ligatures: contextual common-ligatures;
+  font-size: 12.5px; line-height: 1.7; padding: 2px 0; }
+pre.code .tok-comment { color: var(--hg-ink-soft); font-style: italic; opacity: 0.85; }
+
 @media (max-width: 820px) {
   .page { grid-template-columns: 1fr; }
   .nav { position: static; padding: 0 32px; }
-  .story-grid { grid-template-columns: 1fr; }
 }
 """
