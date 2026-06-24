@@ -95,9 +95,7 @@
       }
     },
     "extra_packages": {
-      "sigil": {
-        "path": "/Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil"
-      }
+      "sigil": "0.3.0"
     }
   },
   "packages": {
@@ -826,8 +824,9 @@
       ]
     },
     "sigil": {
-      "type": "local",
-      "path": "/Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil",
+      "type": "registry",
+      "version": "0.3.0",
+      "integrity": "sha256-AkxQmeLWPwjls15NBh6PieKztZd14NA/5ySGBkEVurE=",
       "dependencies": [
         "arrays",
         "effect",

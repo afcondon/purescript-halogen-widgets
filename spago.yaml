@@ -1,7 +1,8 @@
 workspace:
   extraPackages:
-    sigil:
-      path: /Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil
+    # Sigil is published to the PureScript registry; pull 0.3.0 from there so a
+    # clean clone builds without any sibling checkout. (Was a local path dep.)
+    sigil: 0.3.0
 
 package:
   name: hylograph-halogen-ui
