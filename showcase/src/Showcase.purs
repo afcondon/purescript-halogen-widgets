@@ -293,6 +293,14 @@ siteHeader theme =
         [ HH.text "Reusable Halogen widgets on one controlled component contract. \
                   \Every demo below is live — and this page (the parent) owns all of \
                   \their state, just as the contract says. Show, and tell." ]
+    , HH.p [ cls "site-header__links" ]
+        [ HH.a
+            [ HP.href "https://github.com/afcondon/purescript-hylograph-halogen-ui"
+            , HP.target "_blank"
+            , cls "src-link"
+            ]
+            [ HH.text "Source on GitHub ↗" ]
+        ]
     ]
 
 navColumn :: forall m. H.ComponentHTML Action Slots m
@@ -1055,6 +1063,12 @@ a { color: inherit; }
 .site-header__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .site-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
 .site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
+.site-header__links { margin-top: 14px !important; }
+.src-link { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; color: var(--hg-accent);
+  border: 1px solid var(--hg-line); border-radius: var(--hg-radius, 6px); padding: 5px 12px;
+  transition: background 150ms ease, border-color 150ms ease; }
+.src-link:hover { border-color: var(--hg-accent); background: color-mix(in srgb, var(--hg-accent) 8%, transparent); }
 .page { display: grid; grid-template-columns: 200px 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
 .nav { position: sticky; top: 0; align-self: start; padding: 40px 0 40px 32px; }
 .nav-group { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
