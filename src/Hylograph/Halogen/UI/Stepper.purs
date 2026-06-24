@@ -1,5 +1,5 @@
--- | A controlled integer stepper: ‹ value › with clamped bounds. The parent
--- | owns `value`; the arrows request `value ± step` (clamped) via `Changed`.
+-- | A controlled integer stepper: ‹ value › with clampInted bounds. The parent
+-- | owns `value`; the arrows request `value ± step` (clampInted) via `Changed`.
 module Hylograph.Halogen.UI.Stepper
   ( Input
   , Output(..)
@@ -52,22 +52,22 @@ component =
         }
     }
 
-clamp :: Input -> Int -> Int
-clamp i v = if v < i.min then i.min else if v > i.max then i.max else v
+clampInt :: Input -> Int -> Int
+clampInt i v = if v < i.min then i.min else if v > i.max then i.max else v
 
 handleAction :: forall m. MonadAff m => Action -> H.HalogenM State Action () Output m Unit
 handleAction = case _ of
   Receive input -> H.modify_ _ { input = input }
   Bump dir -> do
     { input } <- H.get
-    let next = clamp input (input.value + dir * input.step)
+    let next = clampInt input (input.value + dir * input.step)
     when (not input.disabled && next /= input.value) (H.raise (Changed next))
 
 handleQuery :: forall m a. MonadAff m => Query a -> H.HalogenM State Action () Output m (Maybe a)
 handleQuery = case _ of
   Set v a -> do
     { input } <- H.get
-    let next = clamp input v
+    let next = clampInt input v
     when (not input.disabled && next /= input.value) (H.raise (Changed next))
     pure (Just a)
 
