@@ -27,7 +27,8 @@ import Web.DOM.Element as Element
 import Web.HTML (window) as HTML
 import Web.HTML.HTMLDocument (documentElement) as HTMLDocument
 import Web.HTML.HTMLHtmlElement (toElement) as HTMLHtmlElement
-import Web.HTML.Window (document) as Window
+import Web.HTML.Window (document, localStorage) as Window
+import Web.Storage.Storage as Storage
 
 import Hylograph.Halogen.UI.Style (sty, cls)
 import Hylograph.Halogen.UI.VAccordion as VAccordion
@@ -62,6 +63,21 @@ setThemeAttr value = do
   doc <- Window.document win
   mRoot <- HTMLDocument.documentElement doc
   traverse_ (Element.setAttribute "data-theme" value <<< HTMLHtmlElement.toElement) mRoot
+
+-- Theme persistence via typed web-storage (library FFI, no hand-rolled JS).
+themeKey :: String
+themeKey = "hg-showcase-theme"
+
+saveTheme :: Theme -> Effect Unit
+saveTheme t = do
+  store <- Window.localStorage =<< HTML.window
+  Storage.setItem themeKey (themeName t) store
+
+-- `Nothing` means the user never picked one (leave OS-dark `@media` in charge).
+loadTheme :: Effect (Maybe Theme)
+loadTheme = do
+  store <- Window.localStorage =<< HTML.window
+  map (map parseTheme) (Storage.getItem themeKey store)
 
 data Theme = Light | Dark | Hylograph
 
@@ -130,7 +146,7 @@ type State =
   { theme :: Theme
   , accordionOpen :: Boolean
   -- Which column of the horizontal-accordion demo is expanded (only one).
-  , accordionHLeftOpen :: Boolean
+  , accordionHOpen :: String
   , toggleOn :: Boolean
   , stepper :: Int
   , slider :: Number
@@ -148,7 +164,7 @@ initialState :: State
 initialState =
   { theme: Light
   , accordionOpen: true
-  , accordionHLeftOpen: true
+  , accordionHOpen: "sources"
   , toggleOn: true
   , stepper: 3
   , slider: 40.0
@@ -166,7 +182,7 @@ data Action
   = Initialize
   | SetTheme Theme
   | AccToggled Boolean
-  | AccHSelectLeft Boolean
+  | AccHSelect String
   | TogChanged Boolean
   | StepChanged Int
   | SldChanged Number
@@ -192,26 +208,39 @@ component =
         }
     }
 
+-- Inject the Sigil contracts after the DOM settles. Fires twice — immediately
+-- (next tick) and again at 80 ms — so a heavier-than-usual render can't lose
+-- the race and leave the placeholders empty. `renderAllContracts` is
+-- idempotent, so the second pass is free insurance, not double work that shows.
+scheduleInject :: forall o m. MonadAff m => H.HalogenM State Action Slots o m Unit
+scheduleInject = void $ H.fork do
+  liftAff (delay (Milliseconds 0.0))
+  liftEffect renderAllContracts
+  liftAff (delay (Milliseconds 80.0))
+  liftEffect renderAllContracts
+
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action Slots o m Unit
 handleAction = case _ of
-  Initialize ->
-    -- No explicit theme on first paint: the stylesheet's
-    -- `@media (prefers-color-scheme: dark)` rule handles OS-dark users until
-    -- they pick. The Halogen state stays `Light` until a click.
-    pure unit
+  Initialize -> do
+    -- Restore the last-picked theme so a reload keeps Hylograph (and its
+    -- Sigil contracts). If nothing was ever picked, leave the `data-theme`
+    -- attribute unset so OS-dark users still get dark via `@media`.
+    saved <- liftEffect loadTheme
+    case saved of
+      Nothing -> pure unit
+      Just t -> do
+        H.modify_ _ { theme = t }
+        liftEffect (setThemeAttr (themeName t))
+        when (t == Hylograph) scheduleInject
   SetTheme t -> do
     H.modify_ _ { theme = t }
     liftEffect (setThemeAttr (themeName t))
-    -- When entering Hylograph, the Sigil placeholders appear in the VDOM;
-    -- a 0-delay yields the event loop so Halogen finishes rendering them
-    -- before we inject.
-    when (t == Hylograph) $ void $ H.fork do
-      liftAff (delay (Milliseconds 0.0))
-      liftEffect renderAllContracts
+    liftEffect (saveTheme t)
+    when (t == Hylograph) scheduleInject
   AccToggled o -> H.modify_ _ { accordionOpen = o }
-  -- One column open at a time: clicking a folded spine opens it (and folds the
-  -- other); clicking the open column's header does nothing (can't fold both).
-  AccHSelectLeft wantLeft -> H.modify_ _ { accordionHLeftOpen = wantLeft }
+  -- One column open at a time: clicking a folded spine opens it (folding the
+  -- rest); clicking the open column's header is a no-op (can't fold them all).
+  AccHSelect k -> H.modify_ _ { accordionHOpen = k }
   TogChanged v -> H.modify_ _ { toggleOn = v }
   StepChanged v -> H.modify_ _ { stepper = v }
   SldChanged v -> H.modify_ _ { slider = v }
@@ -262,7 +291,8 @@ navColumn :: forall m. H.ComponentHTML Action Slots m
 navColumn =
   HH.nav [ cls "nav" ]
     [ HH.div [ cls "nav-group" ] [ HH.text "Leaf components" ]
-    , navLink "accordion" "Accordion"
+    , navLink "vaccordion" "VAccordion"
+    , navLink "haccordion" "HAccordion"
     , navLink "toggle" "Toggle"
     , navLink "stepper" "Stepper"
     , navLink "slider" "Slider"
@@ -441,29 +471,32 @@ btn act label =
     ]
     [ HH.text label ]
 
--- | Two columns side-by-side, exactly one open. The folded column is a thin
--- | rotated spine; clicking it opens that column and folds the other. The open
--- | column's header click is a no-op (we never fold both). This is the
--- | Triggerfish layout in miniature.
+-- | Three columns side-by-side, exactly one open. The folded columns are thin
+-- | rotated spines; clicking a spine opens that column and folds the rest.
+-- | Clicking the open column's header is a no-op (one is always open). Three
+-- | (not two) so the multi-panel "one open, the others spined" shape reads at a
+-- | glance. This is the Triggerfish layout in miniature.
 hAccordionDemo :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 hAccordionDemo st =
-  HH.div [ sty "display:flex;gap:8px;height:130px;align-items:stretch" ]
-    [ col "left" "OVERVIEW" st.accordionHLeftOpen
-        "This column is open, so the parent renders its body to fill the freed width."
-    , col "right" "DETAILS" (not st.accordionHLeftOpen)
-        "Now the right column owns the space; its neighbour is a folded spine."
-    ]
+  HH.div [ sty "display:flex;gap:8px;height:150px;align-items:stretch" ]
+    (map col columns)
   where
-  col idx label open body =
+  columns =
+    [ { key: "sources", label: "SOURCES", body: "Arbhar · Lubadh · Morphagene — three sample sources feeding the mix." }
+    , { key: "routing", label: "ROUTING", body: "Each source patched to a stereo bus, with send levels and mutes." }
+    , { key: "output",  label: "OUTPUT",  body: "Master bus out to the ES-9: gain, tone, and the final limiter." }
+    ]
+  col c =
+    let open = st.accordionHOpen == c.key in
     HH.div
       [ sty $ "display:flex;flex-direction:column;border:1px solid #d8d3c4;border-radius:6px;\
-              \overflow:hidden;background:#fbfaf6;" <> (if open then "flex:1 1 auto" else "flex:0 0 30px") ]
-      [ HH.slot _accordionH idx HAccordion.component
-          ((HAccordion.defaultInput label) { open = open })
-          (\_ -> AccHSelectLeft (idx == "left"))
+              \overflow:hidden;background:#fbfaf6;" <> (if open then "flex:1 1 auto" else "flex:0 0 32px") ]
+      [ HH.slot _accordionH c.key HAccordion.component
+          ((HAccordion.defaultInput c.label) { open = open })
+          (\_ -> AccHSelect c.key)
       , if open
-          then HH.div [ sty "padding:12px;color:#5a564b;font:13px/1.5 system-ui;flex:1" ]
-                 [ HH.text body ]
+          then HH.div [ sty "padding:14px;color:#5a564b;font:13px/1.6 system-ui;flex:1" ]
+                 [ HH.text c.body ]
           else HH.text ""
       ]
 
@@ -509,26 +542,24 @@ comparePanel hyper =
 stories :: forall m. MonadAff m => State -> Array (H.ComponentHTML Action Slots m)
 stories st =
   [ story st
-      { anchor: "accordion", title: "Accordion", tier: "leaf · controlled-header"
-      , blurb: "A controlled disclosure header with a self-debounced toggle. Two orientations ship as distinct widgets: `VAccordion` stacks panels in rows (the common case); `HAccordion` lays them out as columns, folding to a rotated spine."
-      , code: accordionCode }
-      ( HH.div [ sty "width:100%;display:flex;flex-direction:column;gap:22px" ]
-          [ HH.div [ sty "width:100%" ]
-              [ HH.div [ cls "demo-eyebrow" ] [ HH.text "VAccordion — vertical" ]
-              , HH.slot _accordion unit VAccordion.component
-                  ((VAccordion.defaultInput "DETAILS") { open = st.accordionOpen, sub = Just "click to fold" })
-                  (\(VAccordion.Toggled o) -> AccToggled o)
-              , if st.accordionOpen
-                  then HH.div [ sty "padding:12px 2px 0;color:#5a564b;font:13px/1.5 system-ui" ]
-                         [ HH.text "The parent renders this body, gated on the open state it owns." ]
-                  else HH.text ""
-              ]
-          , HH.div [ sty "width:100%" ]
-              [ HH.div [ cls "demo-eyebrow" ] [ HH.text "HAccordion — horizontal" ]
-              , hAccordionDemo st
-              ]
+      { anchor: "vaccordion", title: "VAccordion", tier: "leaf · controlled-header"
+      , blurb: "The vertical accordion: panels stack as rows. The header is a full-width bar; collapsing hides the parent's body and flips the chevron ▾→▸. The common case — and the reference instance of the contract. The parent owns `open` and renders the body."
+      , code: vAccordionCode }
+      ( HH.div [ sty "width:100%" ]
+          [ HH.slot _accordion unit VAccordion.component
+              ((VAccordion.defaultInput "DETAILS") { open = st.accordionOpen, sub = Just "click to fold" })
+              (\(VAccordion.Toggled o) -> AccToggled o)
+          , if st.accordionOpen
+              then HH.div [ sty "padding:12px 2px 0;color:#5a564b;font:13px/1.5 system-ui" ]
+                     [ HH.text "The parent renders this body, gated on the open state it owns." ]
+              else HH.text ""
           ]
       )
+  , story st
+      { anchor: "haccordion", title: "HAccordion", tier: "leaf · controlled-header"
+      , blurb: "The horizontal accordion: panels sit side by side as columns, and the folded ones become thin rotated spines — the Triggerfish layout. Same contract as VAccordion; only the collapsed rendering differs. Click a spine to open that column."
+      , code: hAccordionCode }
+      ( hAccordionDemo st )
   , story st
       { anchor: "toggle", title: "Toggle", tier: "leaf · controlled"
       , blurb: "The minimal instance of the contract — no ephemeral state at all. The parent owns `value`."
@@ -699,7 +730,14 @@ type Contract = { slug :: String, fragments :: Array Fragment }
 -- One contract per widget. The slug matches the story's anchor.
 allContracts :: Array Contract
 allContracts =
-  [ { slug: "accordion"
+  [ { slug: "vaccordion"
+    , fragments:
+        [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Toggled", args: [ "Boolean" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "haccordion"
     , fragments:
         [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Toggled", args: [ "Boolean" ] } ]
@@ -846,15 +884,25 @@ findContract slug = find (\c -> c.slug == slug) allContracts
 -- Code snippets (the "tell")
 --------------------------------------------------------------------------------
 
-accordionCode :: String
-accordionCode =
-  """-- VAccordion stacks rows; HAccordion lays out columns. Same contract:
--- parent owns `open`, widget emits a request, parent renders the body.
+vAccordionCode :: String
+vAccordionCode =
+  """-- parent owns `open`; widget emits a request, parent renders the body
 HH.slot _accordion unit VAccordion.component
   (VAccordion.defaultInput "DETAILS")
     { open = state.accordionOpen, sub = Just "click to fold" }
   (\(VAccordion.Toggled o) -> AccToggled o)
 , if state.accordionOpen then bodyHtml else HH.text ""
+"""
+
+hAccordionCode :: String
+hAccordionCode =
+  """-- N columns share a parent-owned "which is open" key; one open at a time
+HH.div_ (columns <#> \c ->
+  HH.slot _accordionH c.key HAccordion.component
+    ((HAccordion.defaultInput c.label)
+       { open = state.accordionHOpen == c.key })
+    (\_ -> AccHSelect c.key))
+-- HAccordion differs from VAccordion only in the collapsed (spine) rendering.
 """
 
 toggleCode :: String
@@ -993,10 +1041,6 @@ a { color: inherit; }
 .story-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
 .tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hg-ink-soft); }
 .blurb { margin: 8px 0 22px; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
-
-/* Eyebrow label above a sub-demo when one stage shows two variants. */
-.demo-eyebrow { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--hg-ink-soft); font-weight: 600; margin: 0 0 8px; }
 
 /* Numbered parts. A counter on `.story` numbers them contiguously, so the
  * Hylograph-only contract part never leaves a gap (light/dark read 01/02,
