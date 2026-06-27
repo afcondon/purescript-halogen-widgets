@@ -47,7 +47,7 @@ import Halogen.HTML.Properties as HP
 import Web.DOM.Element (getBoundingClientRect)
 import Web.Event.Event (preventDefault)
 import Web.HTML (window)
-import Web.HTML.HTMLElement (toElement)
+import Web.HTML.HTMLElement (blur, toElement)
 import Web.HTML.Window (innerWidth)
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
@@ -131,6 +131,14 @@ type State =
 panelRef :: H.RefLabel
 panelRef = H.RefLabel "hg-select-panel"
 
+-- The ref on the focusable root, blurred on commit so the widget stops
+-- capturing keys (it is `tabIndex 0` + `onKeyDown`) the moment it is no longer
+-- the user's deliberate focus. Without this, a host page's global key handler
+-- (e.g. Space-to-audition) double-fires: the host acts AND the still-focused
+-- Select re-opens on the same key.
+rootRef :: H.RefLabel
+rootRef = H.RefLabel "hg-select-root"
+
 -- The hover-intent close delay (the diagonal-travel grace period).
 hoverDelay :: Milliseconds
 hoverDelay = Milliseconds 180.0
@@ -193,9 +201,20 @@ handleAction = case _ of
       when (s'.hoverGen == mine) (H.modify_ _ { hovered = Nothing, focusParent = Nothing, leafFocus = Nothing })
   Pick value -> do
     H.modify_ _ { open = false, query = "", hovered = Nothing, focusParent = Nothing, leafFocus = Nothing }
+    -- Relinquish keyboard focus on commit: the control should not keep
+    -- shadowing the host page's keys after the user has chosen.
+    blurRoot
     H.raise (Selected value)
   HandleKey ev ->
     handleKey ev
+
+-- Drop focus from the focusable root element (see `rootRef`).
+blurRoot :: forall m. MonadAff m => H.HalogenM State Action () Output m Unit
+blurRoot = do
+  mEl <- H.getHTMLElementRef rootRef
+  case mEl of
+    Just el -> liftEffect (blur el)
+    Nothing -> pure unit
 
 -- Measure the first panel's right edge against the viewport; flip the submenu to
 -- the left when it would overflow. A one-shot measure on open (per the spec) —
@@ -318,6 +337,7 @@ render :: forall m. State -> H.ComponentHTML Action () m
 render st =
   HH.div
     [ cls "hg-select"
+    , HP.ref rootRef
     , HP.tabIndex 0
     , HE.onKeyDown HandleKey
     , sty $ "position:relative;display:inline-block;min-width:180px;outline:none;font-family:" <> uiFont
