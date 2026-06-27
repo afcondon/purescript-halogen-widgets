@@ -29,6 +29,7 @@ module Hylograph.Halogen.UI.Accordion.Internal
   , Orientation(..)
   , mkComponent
   , defaultInput
+  , body
   ) where
 
 import Prelude
@@ -40,6 +41,7 @@ import Effect.Aff.Class (class MonadAff, liftAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
+import Hylograph.Halogen.UI.Motion (Motion(..), transition)
 import Hylograph.Halogen.UI.Style (sty, cls, clss, ink, inkSoft, line)
 
 -- | Controlled input. The parent owns `open`; everything else is config.
@@ -48,17 +50,22 @@ type Input =
   , label :: String
   , sub :: Maybe String          -- ^ small right-aligned subtitle (e.g. "3 sources")
   , debounce :: Milliseconds     -- ^ toggle debounce; `Milliseconds 0.0` disables it
+  , motion :: Motion             -- ^ chevron-rotation easing; `NoMotion` (default) snaps
   , disabled :: Boolean
   }
 
 -- | A sensible starting `Input`; override the fields you care about.
 -- | The 120 ms default coalesces a double-dispatched click into one `Toggled`.
+-- | `motion` defaults to `NoMotion` — the header snaps, as it always has; opt
+-- | into eased chevron rotation by overriding it (and pair with `Accordion.body`
+-- | for an eased body reveal).
 defaultInput :: String -> Input
 defaultInput label =
   { open: true
   , label
   , sub: Nothing
   , debounce: Milliseconds 120.0
+  , motion: NoMotion
   , disabled: false
   }
 
@@ -134,8 +141,11 @@ render orientation { input } = case orientation of
     if input.open then headerBar input else headerCollapsedStrip input
 
 -- | The full-width horizontal header bar: label on the left, optional sub +
--- | chevron on the right. The chevron glyph reflects `open` (▾ open, ▸ closed),
--- | and the bottom rule shows only while open. Clicking requests a toggle.
+-- | chevron on the right. The chevron is a single ▸ glyph rotated 90° when open
+-- | (so it reads as ▾) — one element that *rotates* rather than two glyphs that
+-- | swap, which is what lets `motion` ease it. With `NoMotion` (the default) it
+-- | snaps, identical to the old glyph swap. The bottom rule shows only while
+-- | open. Clicking requests a toggle.
 headerBar :: forall m. Input -> H.ComponentHTML Action () m
 headerBar input =
   HH.div
@@ -149,8 +159,13 @@ headerBar input =
         [ HH.text input.label ]
     , HH.span [ sty $ "display:flex;gap:8px;align-items:baseline;font-size:0.85em;color:" <> inkSoft ]
         [ maybe (HH.text "") (\s -> HH.span [ cls "hg-accordion__sub" ] [ HH.text s ]) input.sub
-        , HH.span [ cls "hg-accordion__chevron" ]
-            [ HH.text (if input.open then "▾" else "▸") ]
+        , HH.span
+            [ cls "hg-accordion__chevron"
+            , sty $ "display:inline-block;"
+                <> transition "transform" input.motion
+                <> "transform:rotate(" <> (if input.open then "90deg" else "0deg") <> ")"
+            ]
+            [ HH.text "▸" ]
         ]
     ]
 
@@ -176,3 +191,35 @@ rowBase :: Input -> String
 rowBase input =
   "display:flex;font-family:system-ui,sans-serif;user-select:none;"
     <> if input.disabled then "cursor:default;opacity:0.5" else "cursor:pointer"
+
+-- | Tier-2 chrome (CONTRACT.md rule 5): an OPTIONAL animated wrapper for the
+-- | panel body the parent renders. The accordion *component* is only the
+-- | header; the body has always been the parent's, written
+-- | `if open then [body] else []`. That form unmounts the body when collapsed,
+-- | which is exactly why it cannot animate. `body` keeps the content mounted
+-- | and eases its height with the CSS grid-rows `0fr`↔`1fr` trick, so it slides.
+-- |
+-- | The trade-off, made explicit: the body **stays in the DOM while collapsed**
+-- | (at height 0). For a presentational body that costs nothing; for a body of
+-- | live, expensive children, weigh it — the plain `if open then …` unmount is
+-- | still the right call when you want the collapsed body genuinely gone, and is
+-- | lighter when you are not animating at all. Reach for `body` when you want
+-- | the reveal eased (pass the same `motion` you gave the header).
+-- |
+-- | It is action-polymorphic, like `Panel`/`Modal`: your body content threads
+-- | straight through, so it carries your interactive children untouched.
+body
+  :: forall w i
+   . { open :: Boolean, motion :: Motion }
+  -> Array (HH.HTML w i)
+  -> HH.HTML w i
+body cfg content =
+  HH.div
+    [ clss [ "hg-accordion-body", if cfg.open then "hg-accordion-body--open" else "hg-accordion-body--collapsed" ]
+    , sty $ "display:grid;"
+        <> transition "grid-template-rows" cfg.motion
+        <> "grid-template-rows:" <> (if cfg.open then "1fr" else "0fr")
+    ]
+    -- The inner wrapper's `overflow:hidden` + `min-height:0` is what makes the
+    -- grid track collapse fully to zero rather than to the content's min size.
+    [ HH.div [ cls "hg-accordion-body__inner", sty "overflow:hidden;min-height:0" ] content ]

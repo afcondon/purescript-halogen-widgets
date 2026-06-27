@@ -68,6 +68,17 @@
   --hg-page-bg:        #1a1917;
 }
 
+/* Honour the OS "reduce motion" preference even when a consumer has opted a
+ * widget into `Motion`. The widgets emit their transitions inline, so this
+ * override needs `!important` to win. Covers the accordion chevron rotation and
+ * the `Accordion.body` height reveal. */
+@media (prefers-reduced-motion: reduce) {
+  .hg-accordion__chevron,
+  .hg-accordion-body {
+    transition: none !important;
+  }
+}
+
 /* "hylograph" — an opinionated Swiss/International-Typographic theme: warm
  * paper, near-black ink, a single vermilion accent, hairline rules, crisp
  * corners, Helvetica. Everything Bootstrap isn't. Opt in explicitly. */

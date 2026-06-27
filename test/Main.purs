@@ -26,6 +26,7 @@ import Hylograph.Halogen.UI.Modal as Modal
 import Hylograph.Halogen.UI.Panel as Panel
 import Hylograph.Halogen.UI.Field as Field
 import Hylograph.Halogen.UI.Toast as Toast
+import Hylograph.Halogen.UI.Motion (Motion(..), defaultMotion)
 
 seen :: forall a. a -> Boolean
 seen _ = true
@@ -50,6 +51,9 @@ checks =
     && seen (Panel.panel { title: "t", sub: Nothing } [] :: HH.HTML Unit Unit)
     && seen (Field.field { label: "l", hint: Nothing } (HH.text "x") :: HH.HTML Unit Unit)
     && seen (Toast.toast { variant: Toast.Info, message: "m", onDismiss: Nothing } :: HH.HTML Unit Unit)
+    -- Accordion body reveal — a chrome function, on each orientation's re-export.
+    && seen (VAccordion.body { open: true, motion: NoMotion } [] :: HH.HTML Unit Unit)
+    && seen (HAccordion.body { open: false, motion: defaultMotion } [] :: HH.HTML Unit Unit)
     -- defaultInput on-ramps.
     && (Toggle.defaultInput false).value == false
     && (Stepper.defaultInput 5).value == 5
@@ -57,6 +61,10 @@ checks =
     && (Knob.defaultInput 0.0).ticks == 0
     && (DoubleKnob.defaultInput 0.0 0.0).outer.value == 0.0
     && (Select.defaultInput []).searchable == false
+    -- grouped Select on-ramp: the additive `groups` field + smart constructor.
+    && seen ((Select.groupedInput [ { label: "g", options: [] } ]).groups :: Array Select.OptionGroup)
+    -- cascade Select on-ramp: same data, fly-out presentation.
+    && (Select.cascadingInput [ { label: "g", options: [] } ]).cascade == true
     && (Compare.defaultInput (HH.text "a") (HH.text "b")).position == 50.0
     && (VAccordion.defaultInput "GENERATE").open == true
     && (HAccordion.defaultInput "GENERATE").open == true

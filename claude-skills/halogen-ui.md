@@ -73,7 +73,7 @@ see them in every widget's surface.
 | `Knob` | `value :: Number` | `Changed Number` | Vertical-drag rotary, 140 px = full range, 300° sweep, pure SVG. **Default debounce 0** — the parent's read-back is what the user is watching mid-drag. Raise debounce only for expensive per-tick sinks (MIDI write, audio ramp). |
 | `DoubleKnob` | `outer :: Layer`, `inner :: Layer` | `OuterChanged Number` / `InnerChanged Number` | Concentric two-layer knob (Strymon / Chase Bliss pattern). Each layer independently dragged; tag tells you which. |
 | `SegmentedControl` | `active :: String` | `Selected String` | Tab-bar selector. **Parent owns `active` AND renders the pane** — control is only the selector. |
-| `Select` | `selected :: Maybe String` | `Selected String` | Dropdown, optional `searchable` typeahead. `selected` controlled; `open`/`query` are *ephemeral* (widget owns them). |
+| `Select` | `selected :: Maybe String` | `Selected String` | Dropdown, optional `searchable` typeahead. `selected` controlled; `open`/`query`/`hovered` are *ephemeral* (widget owns them). Options are **flat** (`defaultInput opts`), **named groups** as an inline list (`groupedInput groups`), or the same groups as a **macOS-style fly-out menu** (`cascadingInput groups`, `cascade = true` — hover a group to pop its leaves out). All additive, one level deep; `selected` resolves across every shape; `Output`/`Slot` unchanged. |
 | `Compare` | `position :: Number` | `Moved Number` | Before/after comparison wipe. The two layers are static `HH.PlainHTML` in `Input` (`before`/`after`) — comparing renderings, not interacting through them — which is exactly what lets a draggable-divider widget be a leaf component. The widget owns the drag. |
 
 ### Chrome functions (render functions polymorphic in the caller's action)
@@ -81,6 +81,7 @@ see them in every widget's surface.
 | Module | Signature | Notes |
 |---|---|---|
 | `Panel` | `PanelConfig -> Array HTML -> HTML` | Titled surface. |
+| `VAccordion.body` / `HAccordion.body` | `{ open, motion } -> Array HTML -> HTML` | Optional **eased** wrapper for the accordion body the parent renders. Keeps content mounted and slides its height (grid-rows `0fr`↔`1fr`) instead of unmounting. Use for an animated reveal; plain `if open then [body] else []` (unmount) stays right for a body of expensive live children. |
 | `Field` | `FieldConfig -> HTML -> HTML` | Labelled form row (label · control · optional hint). |
 | `Modal` | `ModalConfig i -> Array HTML -> HTML` | Overlay + centred panel; `onClose :: i` raised by backdrop or ×. Renders nothing when `open: false`. |
 | `Toast` | `ToastConfig i -> HTML` | Banner coloured by `Variant (Info\|Success\|Warning\|Error)`; optional `onDismiss :: Maybe i`. |
@@ -179,6 +180,31 @@ you want every tick.
 ```purescript
 (Knob.defaultInput st.cutoff) { debounce = Milliseconds 30.0 }
 ```
+
+## Motion — opt-in easing, off by default
+
+`Hylograph.Halogen.UI.Motion` carries `Motion` / `Easing`, `defaultMotion`
+(180 ms ease-out), and `transition`. The kit default is **`NoMotion`** — instant,
+no easing — on purpose; you opt a single widget in. Today's animatable surface is
+the accordion:
+
+- **Chevron** — pass `motion` in the accordion's `Input`; it rotates 0°→90° eased.
+- **Body reveal** — wrap the parent-rendered body in `VAccordion.body { open, motion } [body]`
+  (a chrome function). It keeps the body **mounted** and slides its height, where
+  the plain `if open then [body] else []` unmounts and so can't animate. Trade-off:
+  the body stays in the DOM while collapsed — fine for presentational content,
+  weigh it for a body of expensive live children.
+
+```purescript
+[ HH.slot _acc p.key VAccordion.component
+    ((VAccordion.defaultInput p.label) { open = open, motion = defaultMotion })
+    (\(VAccordion.Toggled o) -> Toggle p.key o)
+, VAccordion.body { open, motion: defaultMotion } [ bodyFor p ]
+]
+```
+
+`css/hylograph-ui.css` carries a `prefers-reduced-motion` block that neutralises
+these transitions for users who asked the OS to reduce motion, even once opted in.
 
 ## Theming
 

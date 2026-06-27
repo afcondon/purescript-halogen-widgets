@@ -14,7 +14,7 @@ module Hylograph.Halogen.UI.HAccordion
 
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
-import Hylograph.Halogen.UI.Accordion.Internal (Input, Output(..), Query(..), Slot, defaultInput) as Export
+import Hylograph.Halogen.UI.Accordion.Internal (Input, Output(..), Query(..), Slot, defaultInput, body) as Export
 import Hylograph.Halogen.UI.Accordion.Internal (Orientation(Horizontal), mkComponent)
 
 component :: forall m. MonadAff m => H.Component Export.Query Export.Input Export.Output m

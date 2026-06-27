@@ -31,6 +31,7 @@ import Web.HTML.Window (document, localStorage) as Window
 import Web.Storage.Storage as Storage
 
 import Hylograph.Halogen.UI.Style (sty, cls)
+import Hylograph.Halogen.UI.Motion (defaultMotion)
 import Hylograph.Halogen.UI.VAccordion as VAccordion
 import Hylograph.Halogen.UI.HAccordion as HAccordion
 import Hylograph.Halogen.UI.Toggle as Toggle
@@ -105,6 +106,8 @@ type Slots =
   , doubleKnob :: DoubleKnob.Slot Unit
   , segmented :: Segmented.Slot Unit
   , select :: Select.Slot Unit
+  , selectGrouped :: Select.Slot Unit
+  , selectCascade :: Select.Slot Unit
   , compare :: Compare.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
   )
@@ -136,6 +139,12 @@ _segmented = Proxy
 _select :: Proxy "select"
 _select = Proxy
 
+_selectGrouped :: Proxy "selectGrouped"
+_selectGrouped = Proxy
+
+_selectCascade :: Proxy "selectCascade"
+_selectCascade = Proxy
+
 _compare :: Proxy "compare"
 _compare = Proxy
 
@@ -158,6 +167,7 @@ type State =
   , segment :: String
   , comparePos :: Number
   , selected :: Maybe String
+  , selectedScale :: Maybe String
   , modalOpen :: Boolean
   , toastShown :: Boolean
   }
@@ -176,6 +186,7 @@ initialState =
   , segment: "list"
   , comparePos: 50.0
   , selected: Nothing
+  , selectedScale: Just "PhrygianDominant"
   , modalOpen: false
   , toastShown: false
   }
@@ -194,6 +205,7 @@ data Action
   | SegSelected String
   | CompareMoved Number
   | SelSelected String
+  | ScaleSelected String
   | OpenModal
   | CloseModal
   | ShowToast
@@ -258,6 +270,7 @@ handleAction = case _ of
   SegSelected k -> H.modify_ _ { segment = k }
   CompareMoved p -> H.modify_ _ { comparePos = p }
   SelSelected v -> H.modify_ _ { selected = Just v }
+  ScaleSelected v -> H.modify_ _ { selectedScale = Just v }
   OpenModal -> H.modify_ _ { modalOpen = true }
   CloseModal -> H.modify_ _ { modalOpen = false }
   ShowToast -> H.modify_ _ { toastShown = true }
@@ -316,6 +329,8 @@ navColumn =
     , navLink "doubleknob" "DoubleKnob"
     , navLink "segmented" "Segmented"
     , navLink "select" "Select"
+    , navLink "select-grouped" "Select · grouped"
+    , navLink "select-cascade" "Select · submenus"
     , navLink "compare" "Compare"
     , HH.div [ cls "nav-group" ] [ HH.text "Chrome functions" ]
     , navLink "panel" "Panel"
@@ -503,13 +518,16 @@ vAccordionDemo st =
   panel p =
     let open = not (Array.elem p.key st.vCollapsed) in
     HH.div [ sty "width:100%" ]
+      -- opt into eased motion: the chevron rotates and the body slides. The body
+      -- is wrapped in `VAccordion.body`, so it stays mounted and animates its
+      -- height instead of unmounting on collapse.
       [ HH.slot _accordion p.key VAccordion.component
-          ((VAccordion.defaultInput p.label) { open = open, sub = p.sub })
+          ((VAccordion.defaultInput p.label) { open = open, sub = p.sub, motion = defaultMotion })
           (\(VAccordion.Toggled o) -> VAccToggle p.key o)
-      , if open
-          then HH.div [ sty "padding:8px 2px 14px;color:#5a564b;font:13px/1.6 system-ui" ]
-                 [ HH.text p.body ]
-          else HH.text ""
+      , VAccordion.body { open, motion: defaultMotion }
+          [ HH.div [ sty "padding:8px 2px 14px;color:#5a564b;font:13px/1.6 system-ui" ]
+              [ HH.text p.body ]
+          ]
       ]
 
 -- | Three columns side-by-side, exactly one open. The folded columns are thin
@@ -579,6 +597,45 @@ comparePanel hyper =
             <> ";background:" <> accent <> ";color:#fff;font-size:12px;font-weight:600;letter-spacing:" <> ls ]
         [ HH.text (if hyper then "APPLY" else "Apply") ]
     ]
+
+-- | The 21 scales as three families of seven modes — the Vetula scale picker.
+-- | Stable mode keys as `value`; display strings as `label`.
+scaleGroups :: Array Select.OptionGroup
+scaleGroups =
+  [ { label: "Major modes"
+    , options:
+        [ { value: "Ionian",     label: "Ionian (major)" }
+        , { value: "Dorian",     label: "Dorian" }
+        , { value: "Phrygian",   label: "Phrygian" }
+        , { value: "Lydian",     label: "Lydian" }
+        , { value: "Mixolydian", label: "Mixolydian" }
+        , { value: "Aeolian",    label: "Aeolian (natural minor)" }
+        , { value: "Locrian",    label: "Locrian" }
+        ]
+    }
+  , { label: "Harmonic minor modes"
+    , options:
+        [ { value: "HarmonicMinor",    label: "Harmonic minor" }
+        , { value: "LocrianNat6",      label: "Locrian ♮6" }
+        , { value: "IonianSharp5",     label: "Ionian ♯5" }
+        , { value: "DorianSharp4",     label: "Dorian ♯4" }
+        , { value: "PhrygianDominant", label: "Phrygian dominant" }
+        , { value: "LydianSharp2",     label: "Lydian ♯2" }
+        , { value: "Ultralocrian",     label: "Ultralocrian" }
+        ]
+    }
+  , { label: "Melodic minor modes"
+    , options:
+        [ { value: "MelodicMinor",    label: "Melodic minor" }
+        , { value: "DorianFlat2",     label: "Dorian ♭2" }
+        , { value: "LydianAugmented", label: "Lydian augmented" }
+        , { value: "LydianDominant",  label: "Lydian dominant (acoustic)" }
+        , { value: "MixolydianFlat6", label: "Mixolydian ♭6" }
+        , { value: "LocrianNat2",     label: "Locrian ♮2" }
+        , { value: "Altered",         label: "Altered (super locrian)" }
+        ]
+    }
+  ]
 
 stories :: forall m. MonadAff m => State -> Array (H.ComponentHTML Action Slots m)
 stories st =
@@ -682,6 +739,24 @@ stories st =
           (\(Select.Selected v) -> SelSelected v)
       )
   , story st
+      { anchor: "select-grouped", title: "Select · grouped", tier: "leaf · controlled + ephemeral"
+      , blurb: "The same `Select`, with options in **named groups** under non-selectable headers — *purely additive*: `groupedInput` instead of `defaultInput`, everything else (the controlled `selected`, the ephemeral `open`/`query`, `Output`) unchanged. Here are 21 scales as three families of modes; the grouping carries the pedagogy a flat list hides. Type `dom` — search filters the leaves and drops any group left empty."
+      , code: selectGroupedCode }
+      ( HH.slot _selectGrouped unit Select.component
+          ((Select.groupedInput scaleGroups)
+            { selected = st.selectedScale, searchable = true, placeholder = "Choose a scale…" })
+          (\(Select.Selected v) -> ScaleSelected v)
+      )
+  , story st
+      { anchor: "select-cascade", title: "Select · submenus", tier: "leaf · controlled + ephemeral"
+      , blurb: "The **same grouped data**, presented as a macOS-style **fly-out menu**: the panel lists the three families; hovering one reveals its modes as a popup to the side. `cascadingInput` instead of `groupedInput` — `Output`, `Slot`, and the controlled `selected` are unchanged, so this picker and the grouped one above drive the **same** value (pick in one, watch the other's label follow). Opening pre-expands the submenu holding the current selection."
+      , code: selectCascadeCode }
+      ( HH.slot _selectCascade unit Select.component
+          ((Select.cascadingInput scaleGroups)
+            { selected = st.selectedScale, placeholder = "Choose a scale…" })
+          (\(Select.Selected v) -> ScaleSelected v)
+      )
+  , story st
       { anchor: "compare", title: "Compare", tier: "leaf · controlled"
       , blurb: "A before/after comparison wipe. The two layers are static `PlainHTML` — comparing renderings, not interacting through them — which is what lets it be a leaf component: the widget owns the drag, the layers arrive inert. Drag the handle."
       , code: compareCode }
@@ -764,14 +839,14 @@ allContracts :: Array Contract
 allContracts =
   [ { slug: "vaccordion"
     , fragments:
-        [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, disabled :: Boolean )"
+        [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, motion :: Motion, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Toggled", args: [ "Boolean" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
     }
   , { slug: "haccordion"
     , fragments:
-        [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, disabled :: Boolean )"
+        [ TypeSyn "Input" "Record ( open :: Boolean, label :: String, sub :: Maybe String, debounce :: Milliseconds, motion :: Motion, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Toggled", args: [ "Boolean" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
@@ -826,7 +901,21 @@ allContracts =
   , { slug: "select"
     , fragments:
         [ TypeSyn "Option" "Record ( value :: String, label :: String )"
-        , TypeSyn "Input" "Record ( options :: Array Option, selected :: Maybe String, placeholder :: String, searchable :: Boolean, disabled :: Boolean )"
+        , TypeSyn "Input" "Record ( options :: Array Option, groups :: Array OptionGroup, cascade :: Boolean, selected :: Maybe String, placeholder :: String, searchable :: Boolean, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "select-grouped"
+    , fragments:
+        [ TypeSyn "OptionGroup" "Record ( label :: String, options :: Array Option )"
+        , Signature "groupedInput" "Array OptionGroup -> Input"
+        , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
+        ]
+    }
+  , { slug: "select-cascade"
+    , fragments:
+        [ Signature "cascadingInput" "Array OptionGroup -> Input"
         , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
@@ -919,10 +1008,14 @@ findContract slug = find (\c -> c.slug == slug) allContracts
 vAccordionCode :: String
 vAccordionCode =
   """-- BITFIELD: `collapsed` is a Set/Array; each panel folds independently.
-panel p = HH.slot _accordion p.key VAccordion.component
-  ((VAccordion.defaultInput p.label)
-     { open = not (elem p.key state.collapsed) })
-  (\(VAccordion.Toggled o) -> VAccToggle p.key o)
+-- `motion` (opt-in; NoMotion by default) eases the chevron; `VAccordion.body`
+-- wraps the parent-rendered body so it slides instead of unmounting.
+panel p = let open = not (elem p.key state.collapsed) in
+  [ HH.slot _accordion p.key VAccordion.component
+      ((VAccordion.defaultInput p.label) { open = open, motion = defaultMotion })
+      (\(VAccordion.Toggled o) -> VAccToggle p.key o)
+  , VAccordion.body { open, motion: defaultMotion } [ bodyFor p ]
+  ]
 
 VAccToggle k wantOpen ->                       -- the handler decides semantics
   modify_ \s -> s { collapsed =
@@ -1007,6 +1100,30 @@ HH.slot _select unit Select.component
     , searchable = true
     , placeholder = "Choose a module…" }
   (\(Select.Selected v) -> SelSelected v)"""
+
+selectGroupedCode :: String
+selectGroupedCode =
+  """-- additive: `groupedInput` instead of `defaultInput`; same Output/Slot
+HH.slot _select unit Select.component
+  (Select.groupedInput
+     [ { label: "Major modes",          options: majorModes }
+     , { label: "Harmonic minor modes", options: harmonicMinorModes }
+     , { label: "Melodic minor modes",  options: melodicMinorModes } ])
+    { selected = state.scale
+    , searchable = true
+    , placeholder = "Choose a scale…" }
+  (\(Select.Selected v) -> ScaleSelected v)"""
+
+selectCascadeCode :: String
+selectCascadeCode =
+  """-- same groups, fly-out presentation; same Output/Slot/controlled `selected`
+HH.slot _select unit Select.component
+  (Select.cascadingInput
+     [ { label: "Major modes",          options: majorModes }
+     , { label: "Harmonic minor modes", options: harmonicMinorModes }
+     , { label: "Melodic minor modes",  options: melodicMinorModes } ])
+    { selected = state.scale, placeholder = "Choose a scale…" }
+  (\(Select.Selected v) -> ScaleSelected v)"""
 
 compareCode :: String
 compareCode =

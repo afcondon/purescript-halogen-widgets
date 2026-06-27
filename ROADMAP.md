@@ -5,6 +5,27 @@ widgets on it (WIDGETS.md), a type-level smoke test, the `/halogen-hooks`
 companion skill, and a live show-and-tell showcase. Tags below: **[value]** to
 the ship-it-and-dogfood goal, **[effort]** rough size, **→** dependencies.
 
+## Recently landed (post-v0.1)
+
+- **Grouped + cascade `Select`.** Additive `groups :: Array OptionGroup` and a
+  `cascade :: Boolean` flag, with `groupedInput` / `cascadingInput` on-ramps. Two
+  presentations of the same grouped data: the **inline** list (non-selectable
+  headers, indented leaves, per-group search) and the **macOS-style fly-out menu**.
+  The cascade ships the full interaction set Vetula spec'd: hover-intent close-delay
+  (diagonal travel), click/touch open, **keyboard model** (↑/↓ highlight, →/Enter
+  open + enter submenu, ←/Esc back out, Esc/backdrop close), viewport-edge **flip**,
+  opening pre-expands the selected value's group, and a search fallback that
+  flattens to a filtered list. Fully backward-compatible (`defaultInput` unchanged,
+  `Output`/`Query`/`Slot`/`component` untouched); `selected` resolves across every
+  shape. Driven by Vetula's 21-scale SCALE/BORROW picker
+  (`docs/widget-select-nesting-requirement.md`). What's still reserved for the
+  standalone **Menu** below: summon-at-an-arbitrary-point (true context menu) and
+  arbitrary nesting depth — `Select`'s cascade is one level, a controlled *picker*.
+- **Opt-in accordion motion.** New `Hylograph.Halogen.UI.Motion` (`Motion`/`Easing`,
+  `defaultMotion`, `transition`), default `NoMotion`. Accordion chevron rotates
+  eased; `Accordion.body` chrome function eases the body reveal (grid-rows trick,
+  body stays mounted). `prefers-reduced-motion` honoured in the stylesheet.
+
 ## Now — "ship it" (target v0.2)
 
 The smallest set that makes the library presentable and consumable.
