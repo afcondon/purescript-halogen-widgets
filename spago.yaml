@@ -1,8 +1,6 @@
 workspace:
-  extraPackages:
-    # Sigil is published to the PureScript registry; pull 0.3.0 from there so a
-    # clean clone builds without any sibling checkout. (Was a local path dep.)
-    sigil: 0.3.0
+  packageSet:
+    registry: 77.13.1
 
 package:
   name: hylograph-halogen-ui
