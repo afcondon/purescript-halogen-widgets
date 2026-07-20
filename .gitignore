@@ -5,3 +5,4 @@
 /.psci_modules/
 .DS_Store
 showcase/bundle.js
+.direnv/
