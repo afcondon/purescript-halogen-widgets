@@ -296,9 +296,9 @@ siteHeader theme =
         -- the theme switcher is itself the library's SegmentedControl
         , HH.slot _themeSwitch unit Segmented.component
             ((Segmented.defaultInput
-                [ { key: "light", label: "Light" }
-                , { key: "dark", label: "Dark" }
-                , { key: "hylograph", label: "Hylograph" }
+                [ Segmented.segment "light" "Light"
+                , Segmented.segment "dark" "Dark"
+                , Segmented.segment "hylograph" "Hylograph"
                 ]) { active = themeName theme })
             (\(Segmented.Selected k) -> SetTheme (parseTheme k))
         ]
@@ -716,9 +716,9 @@ stories st =
       ( HH.div [ sty "display:flex;flex-direction:column;gap:14px;align-items:flex-start" ]
           [ HH.slot _segmented unit Segmented.component
               ((Segmented.defaultInput
-                  [ { key: "list", label: "List" }
-                  , { key: "grid", label: "Grid" }
-                  , { key: "map", label: "Map" }
+                  [ Segmented.segment "list" "List"
+                  , Segmented.segment "grid" "Grid"
+                  , Segmented.segment "map" "Map"
                   ]) { active = st.segment })
               (\(Segmented.Selected k) -> SegSelected k)
           , HH.div [ sty "font:13px system-ui;color:#5a564b" ]

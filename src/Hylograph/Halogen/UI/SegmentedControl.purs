@@ -4,6 +4,7 @@
 -- | a segment requests it via `Selected`.
 module Hylograph.Halogen.UI.SegmentedControl
   ( Segment
+  , segment
   , Input
   , Output(..)
   , Query(..)
@@ -22,7 +23,21 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Hylograph.Halogen.UI.Style (sty, cls, ink, inkSoft, surface, surfaceAlt, line, uiFont)
 
-type Segment = { key :: String, label :: String }
+-- | One segment. `color` tints the segment to mark what it selects —
+-- | a shelf, a channel, a category — rather than relying on position
+-- | alone; `Nothing` leaves it on the theme's own surface tokens, which
+-- | is the right default for an ordinary tab bar. (`Knob` and
+-- | `DoubleKnob` carry a `color` for the same reason; theirs defaults to
+-- | the theme accent, where a segment's absence of colour is meaningful.)
+type Segment =
+  { key :: String
+  , label :: String
+  , color :: Maybe String
+  }
+
+-- | The common case: a segment that takes its colour from the theme.
+segment :: String -> String -> Segment
+segment key label = { key, label, color: Nothing }
 
 type Input =
   { segments :: Array Segment
@@ -91,8 +106,16 @@ segBtn input seg =
        , HE.onClick \_ -> Pick seg.key
        , sty $ "padding:5px 12px;border:0;border-left:1px solid " <> line <> ";font-size:12px;"
            <> (if input.disabled then "cursor:default;" else "cursor:pointer;")
-           <> (if active
-                 then "background:" <> surface <> ";color:" <> ink <> ";font-weight:600"
-                 else "background:" <> surfaceAlt <> ";color:" <> inkSoft)
+           <> paint seg.color active
        ]
        [ HH.text seg.label ]
+
+-- | A coloured segment fills with its colour when active and shows it as
+-- | ink when not, so the palette reads as a key in both states. An
+-- | uncoloured segment keeps the original theme-token treatment.
+paint :: Maybe String -> Boolean -> String
+paint = case _, _ of
+  Just c, true -> "background:" <> c <> ";color:#fff;font-weight:600"
+  Just c, false -> "background:transparent;color:" <> c <> ";font-weight:500"
+  Nothing, true -> "background:" <> surface <> ";color:" <> ink <> ";font-weight:600"
+  Nothing, false -> "background:" <> surfaceAlt <> ";color:" <> inkSoft
