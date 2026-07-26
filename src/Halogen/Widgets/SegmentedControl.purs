@@ -2,7 +2,7 @@
 -- | renders the corresponding pane itself (the SegmentedControl is just the
 -- | selector — see CONTRACT.md rule 5: content stays with the parent). Picking
 -- | a segment requests it via `Selected`.
-module Hylograph.Halogen.UI.SegmentedControl
+module Halogen.Widgets.SegmentedControl
   ( Segment
   , segment
   , Input
@@ -21,7 +21,7 @@ import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Hylograph.Halogen.UI.Style (sty, cls, ink, inkSoft, surface, surfaceAlt, line, uiFont)
+import Halogen.Widgets.Style (sty, cls, ink, inkSoft, surface, surfaceAlt, line, uiFont)
 
 -- | One segment. `color` tints the segment to mark what it selects —
 -- | a shelf, a channel, a category — rather than relying on position
@@ -92,7 +92,7 @@ render :: forall m. State -> H.ComponentHTML Action () m
 render { input } =
   HH.div
     [ cls "hg-segmented"
-    , sty $ "display:inline-flex;border:1px solid " <> line <> ";border-radius:var(--hg-radius,7px);overflow:hidden;"
+    , sty $ "display:inline-flex;border:1px solid " <> line <> ";border-radius:var(--hw-radius,7px);overflow:hidden;"
         <> "font-family:" <> uiFont <> ";"
         <> (if input.disabled then "opacity:0.5" else "")
     ]

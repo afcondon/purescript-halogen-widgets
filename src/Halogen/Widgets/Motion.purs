@@ -11,9 +11,9 @@
 -- | `transition` renders the CSS declaration these widgets splice into their
 -- | inline styles, and emits the empty string under `NoMotion` — so the
 -- | un-opted-in path adds no `transition` at all. (For users who opt in but set
--- | the OS "reduce motion" preference, `css/hylograph-ui.css` carries a
+-- | the OS "reduce motion" preference, `css/halogen-widgets.css` carries a
 -- | `prefers-reduced-motion` block that neutralises these transitions.)
-module Hylograph.Halogen.UI.Motion
+module Halogen.Widgets.Motion
   ( Motion(..)
   , Easing(..)
   , defaultMotion

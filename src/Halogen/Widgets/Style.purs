@@ -2,13 +2,13 @@
 -- | widget in the kit reads as one family.
 -- |
 -- | Each colour token is a CSS custom property with a baked-in fallback —
--- | `var(--hg-ink, #2b2b2b)`. So widgets are **self-contained** (they render
+-- | `var(--hw-ink, #2b2b2b)`. So widgets are **self-contained** (they render
 -- | with the light defaults even when no stylesheet is loaded) *and*
--- | **themeable** (drop in `css/hylograph-ui.css`, or just define the
--- | `--hg-*` variables yourself, to recolour — e.g. dark mode — without
+-- | **themeable** (drop in `css/halogen-widgets.css`, or just define the
+-- | `--hw-*` variables yourself, to recolour — e.g. dark mode — without
 -- | touching any PureScript). Tokens are plain `String`s meant to be
 -- | concatenated into inline `style` strings; class names are emitted too.
-module Hylograph.Halogen.UI.Style
+module Halogen.Widgets.Style
   ( sty
   , cls
   , clss
@@ -49,54 +49,54 @@ clss :: forall r i. Array String -> HP.IProp ( class :: String | r ) i
 clss names = HP.classes (map HH.ClassName names)
 
 ink :: String
-ink = "var(--hg-ink, #2b2b2b)"
+ink = "var(--hw-ink, #2b2b2b)"
 
 inkSoft :: String
-inkSoft = "var(--hg-ink-soft, #7a7a7a)"
+inkSoft = "var(--hw-ink-soft, #7a7a7a)"
 
 line :: String
-line = "var(--hg-line, rgba(0,0,0,0.09))"
+line = "var(--hw-line, rgba(0,0,0,0.09))"
 
 surface :: String
-surface = "var(--hg-surface, #ffffff)"
+surface = "var(--hw-surface, #ffffff)"
 
 surfaceAlt :: String
-surfaceAlt = "var(--hg-surface-alt, #f4f3f0)"
+surfaceAlt = "var(--hw-surface-alt, #f4f3f0)"
 
 accent :: String
-accent = "var(--hg-accent, #2f5fb0)"
+accent = "var(--hw-accent, #2f5fb0)"
 
 danger :: String
-danger = "var(--hg-danger, #b0492f)"
+danger = "var(--hw-danger, #b0492f)"
 
 warn :: String
-warn = "var(--hg-warn, #b07a2f)"
+warn = "var(--hw-warn, #b07a2f)"
 
 ok :: String
-ok = "var(--hg-ok, #2f8a5c)"
+ok = "var(--hw-ok, #2f8a5c)"
 
 -- | The "off" track of a switch / unfilled control rail.
 trackOff :: String
-trackOff = "var(--hg-track-off, #c9c6bd)"
+trackOff = "var(--hw-track-off, #c9c6bd)"
 
 -- | The border of a small control (buttons, steppers).
 controlBorder :: String
-controlBorder = "var(--hg-control-border, #cfcabb)"
+controlBorder = "var(--hw-control-border, #cfcabb)"
 
 -- | The moving knob / thumb of a switch.
 knob :: String
-knob = "var(--hg-knob, #ffffff)"
+knob = "var(--hw-knob, #ffffff)"
 
 -- | A drop-shadow colour (use as the colour stop of a box-shadow).
 shadow :: String
-shadow = "var(--hg-shadow, rgba(0,0,0,0.13))"
+shadow = "var(--hw-shadow, rgba(0,0,0,0.13))"
 
 -- | The dimming layer behind a modal.
 backdrop :: String
-backdrop = "var(--hg-backdrop, rgba(0,0,0,0.4))"
+backdrop = "var(--hw-backdrop, rgba(0,0,0,0.4))"
 
 uiFont :: String
-uiFont = "var(--hg-font, system-ui,-apple-system,'Segoe UI',sans-serif)"
+uiFont = "var(--hw-font, system-ui,-apple-system,'Segoe UI',sans-serif)"
 
 monoFont :: String
 monoFont = "'SF Mono',Menlo,monospace"

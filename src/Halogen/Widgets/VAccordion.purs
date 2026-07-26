@@ -9,15 +9,15 @@
 -- | (`if open then [body] else []`). A multi-panel accordion is N of these
 -- | sharing a parent-owned open-set (exactly Triggerfish's
 -- | `collapsed :: Array String`).
-module Hylograph.Halogen.UI.VAccordion
+module Halogen.Widgets.VAccordion
   ( module Export
   , component
   ) where
 
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
-import Hylograph.Halogen.UI.Accordion.Internal (Input, Output(..), Query(..), Slot, defaultInput, body) as Export
-import Hylograph.Halogen.UI.Accordion.Internal (Orientation(Vertical), mkComponent)
+import Halogen.Widgets.Accordion.Internal (Input, Output(..), Query(..), Slot, defaultInput, body) as Export
+import Halogen.Widgets.Accordion.Internal (Orientation(Vertical), mkComponent)
 
 component :: forall m. MonadAff m => H.Component Export.Query Export.Input Export.Output m
 component = mkComponent Vertical

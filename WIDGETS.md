@@ -5,7 +5,7 @@ split by tier: **leaf components** are full `H.Component`s (controlled,
 `receive`-resyncing, `MonadAff`); **chrome functions** are action-polymorphic
 render functions for containers that wrap caller-owned content.
 
-All widgets share `Hylograph.Halogen.UI.Style` (the `sty`/`cls`/`clss` helpers
+All widgets share `Halogen.Widgets.Style` (the `sty`/`cls`/`clss` helpers
 and a restrained light-Swiss palette), so the set reads as one family. Colours
 are inline + class-named, so consumers can re-theme via plain CSS.
 
@@ -42,10 +42,10 @@ rule 5). Each is `forall w i. Config -> … -> HH.HTML w i`.
 
 ### Motion — opt-in easing
 
-`Hylograph.Halogen.UI.Motion` carries the `Motion` / `Easing` types, `defaultMotion`
+`Halogen.Widgets.Motion` carries the `Motion` / `Easing` types, `defaultMotion`
 (180 ms ease-out), and `transition`. The kit's default is **`NoMotion`** — instant,
 no easing — and you opt a single widget in (the accordion chevron via the `motion`
-`Input` field; the body reveal via `Accordion.body`). `css/hylograph-ui.css` carries
+`Input` field; the body reveal via `Accordion.body`). `css/halogen-widgets.css` carries
 a `prefers-reduced-motion` block that neutralises these transitions for users who
 asked the OS to reduce motion, even after they've been opted in.
 

@@ -11,7 +11,7 @@
 -- | Geometry, SVG primitives, and drag-tracking machinery share the same
 -- | conventions as `Knob` (300° sweep, 140 px = full range, document-level
 -- | mousemove/mouseup subscription on mousedown).
-module Hylograph.Halogen.UI.DoubleKnob
+module Halogen.Widgets.DoubleKnob
   ( Layer
   , Input
   , Output(..)
@@ -42,7 +42,7 @@ import Web.HTML.Window as Window
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent as ME
 
-import Hylograph.Halogen.UI.Style as Style
+import Halogen.Widgets.Style as Style
 
 -- | Per-layer config + value. Each layer is independently controlled.
 type Layer =

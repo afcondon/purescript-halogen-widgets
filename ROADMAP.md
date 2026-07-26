@@ -21,7 +21,7 @@ the ship-it-and-dogfood goal, **[effort]** rough size, **→** dependencies.
   (`docs/widget-select-nesting-requirement.md`). What's still reserved for the
   standalone **Menu** below: summon-at-an-arbitrary-point (true context menu) and
   arbitrary nesting depth — `Select`'s cascade is one level, a controlled *picker*.
-- **Opt-in accordion motion.** New `Hylograph.Halogen.UI.Motion` (`Motion`/`Easing`,
+- **Opt-in accordion motion.** New `Halogen.Widgets.Motion` (`Motion`/`Easing`,
   `defaultMotion`, `transition`), default `NoMotion`. Accordion chevron rotates
   eased; `Accordion.body` chrome function eases the body reveal (grid-rows trick,
   body stays mounted). `prefers-reduced-motion` honoured in the stylesheet.
@@ -31,8 +31,8 @@ the ship-it-and-dogfood goal, **[effort]** rough size, **→** dependencies.
 The smallest set that makes the library presentable and consumable.
 
 - **Theming: light + dark.** [high] [med] — Move `Style` colour tokens from
-  hardcoded hex to CSS custom properties (`var(--hg-ink)` etc.); ship a
-  `hylograph-ui.css` with a light default and a `prefers-color-scheme` /
+  hardcoded hex to CSS custom properties (`var(--hw-ink)` etc.); ship a
+  `halogen-widgets.css` with a light default and a `prefers-color-scheme` /
   `[data-theme="dark"]` dark set. Widgets keep their structural inline styles but
   reference the variables, so a theme can override without touching PureScript.
   Unblocks the showcase toggle and gives the skill real theming to document.
@@ -71,7 +71,7 @@ The smallest set that makes the library presentable and consumable.
   `Menu`/`ContextMenu` (ephemeral-open like Select), `Toast` host (stateful queue
   with auto-dismiss timers). Each an instance of the existing skeleton.
 - **Publish to the PureScript registry.** [med] [low] → API stability — `spago
-  publish` so apps depend on `hylograph-halogen-ui` by bare name instead of a path.
+  publish` so apps depend on `halogen-widgets` by bare name instead of a path.
   Do it once the contract surface has settled against real app use (don't publish
   then immediately break consumers).
 - **Behavioural tests.** [low] [med] — Component-level interaction tests. Lower

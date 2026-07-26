@@ -12,21 +12,21 @@ import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
 
-import Hylograph.Halogen.UI.VAccordion as VAccordion
-import Hylograph.Halogen.UI.HAccordion as HAccordion
-import Hylograph.Halogen.UI.Toggle as Toggle
-import Hylograph.Halogen.UI.Stepper as Stepper
-import Hylograph.Halogen.UI.Slider as Slider
-import Hylograph.Halogen.UI.Knob as Knob
-import Hylograph.Halogen.UI.DoubleKnob as DoubleKnob
-import Hylograph.Halogen.UI.SegmentedControl as Segmented
-import Hylograph.Halogen.UI.Select as Select
-import Hylograph.Halogen.UI.Compare as Compare
-import Hylograph.Halogen.UI.Modal as Modal
-import Hylograph.Halogen.UI.Panel as Panel
-import Hylograph.Halogen.UI.Field as Field
-import Hylograph.Halogen.UI.Toast as Toast
-import Hylograph.Halogen.UI.Motion (Motion(..), defaultMotion)
+import Halogen.Widgets.VAccordion as VAccordion
+import Halogen.Widgets.HAccordion as HAccordion
+import Halogen.Widgets.Toggle as Toggle
+import Halogen.Widgets.Stepper as Stepper
+import Halogen.Widgets.Slider as Slider
+import Halogen.Widgets.Knob as Knob
+import Halogen.Widgets.DoubleKnob as DoubleKnob
+import Halogen.Widgets.SegmentedControl as Segmented
+import Halogen.Widgets.Select as Select
+import Halogen.Widgets.Compare as Compare
+import Halogen.Widgets.Modal as Modal
+import Halogen.Widgets.Panel as Panel
+import Halogen.Widgets.Field as Field
+import Halogen.Widgets.Toast as Toast
+import Halogen.Widgets.Motion (Motion(..), defaultMotion)
 
 seen :: forall a. a -> Boolean
 seen _ = true

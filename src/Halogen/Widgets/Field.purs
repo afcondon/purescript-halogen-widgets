@@ -1,6 +1,6 @@
 -- | A labelled form row: a label above a single control, with an optional hint
 -- | beneath. Chrome-function tier — polymorphic in the caller's action `i`.
-module Hylograph.Halogen.UI.Field
+module Halogen.Widgets.Field
   ( FieldConfig
   , field
   ) where
@@ -9,7 +9,7 @@ import Prelude
 
 import Data.Maybe (Maybe, maybe)
 import Halogen.HTML as HH
-import Hylograph.Halogen.UI.Style (sty, cls, ink, inkSoft, uiFont)
+import Halogen.Widgets.Style (sty, cls, ink, inkSoft, uiFont)
 
 type FieldConfig =
   { label :: String

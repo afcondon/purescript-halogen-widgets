@@ -15,7 +15,7 @@
 -- | clipped with `clip-path: inset(...)` so its content keeps full width rather
 -- | than squashing. The handle position is read back from the container's
 -- | bounding rect on each move (library FFI via `getBoundingClientRect`).
-module Hylograph.Halogen.UI.Compare
+module Halogen.Widgets.Compare
   ( Input
   , Output(..)
   , Query(..)
@@ -44,7 +44,7 @@ import Web.HTML.Window as Window
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent as ME
 
-import Hylograph.Halogen.UI.Style as Style
+import Halogen.Widgets.Style as Style
 
 -- | Controlled input. The parent owns `position` (0–100, the divider as a
 -- | percentage from the left); the two layers and the chrome are config.

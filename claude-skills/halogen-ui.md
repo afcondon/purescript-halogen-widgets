@@ -1,6 +1,6 @@
 # Hylograph Halogen UI
 
-Load the **`hylograph-halogen-ui`** widget toolkit into context for *consuming*
+Load the **`halogen-widgets`** widget toolkit into context for *consuming*
 the library in a Halogen app — wiring widgets, owning their state, raising
 their `Output` back into your `Action`. Fourteen widgets on one uniform controlled
 contract; the value of the library is the rail, not any single widget. Pair
@@ -25,18 +25,18 @@ state style; don't propose component refactors unless asked.
 # Path dep until the library is registry-published:
 # in your spago.yaml workspace:
 #   extraPackages:
-#     hylograph-halogen-ui:
-#       path: /Users/afc/work/afc-work/purescript-hylograph-halogen-ui
+#     halogen-widgets:
+#       path: /Users/afc/work/afc-work/purescript-halogen-widgets
 #
 # in your package dependencies:
-#   - hylograph-halogen-ui
+#   - halogen-widgets
 
 # To use the theme stylesheet:
-<link rel="stylesheet" href="hylograph-ui.css">
+<link rel="stylesheet" href="halogen-widgets.css">
 ```
 
-Widgets carry baked-in light-mode fallbacks via `var(--hg-*, fallback)`, so they
-render correctly with NO stylesheet. Linking `hylograph-ui.css` enables theming:
+Widgets carry baked-in light-mode fallbacks via `var(--hw-*, fallback)`, so they
+render correctly with NO stylesheet. Linking `halogen-widgets.css` enables theming:
 dark via `@media (prefers-color-scheme: dark)`, or set `data-theme="light" |
 "dark" | "hylograph"` on the host element (usually `<html>`).
 
@@ -92,7 +92,7 @@ The library's `defaultInput` is the on-ramp: instantiate with one argument and
 override fields you care about with record update.
 
 ```purescript
-import Hylograph.Halogen.UI.Slider as Slider
+import Halogen.Widgets.Slider as Slider
 import Type.Proxy (Proxy(..))
 
 type Slots =
@@ -136,7 +136,7 @@ _slider "channel-1" …`, `HH.slot _slider "channel-2" …`.
 No slot, no query, no `Proxy` — just pass your action through:
 
 ```purescript
-import Hylograph.Halogen.UI.Modal as Modal
+import Halogen.Widgets.Modal as Modal
 
 data Action = OpenModal | CloseModal | …
 
@@ -183,7 +183,7 @@ you want every tick.
 
 ## Motion — opt-in easing, off by default
 
-`Hylograph.Halogen.UI.Motion` carries `Motion` / `Easing`, `defaultMotion`
+`Halogen.Widgets.Motion` carries `Motion` / `Easing`, `defaultMotion`
 (180 ms ease-out), and `transition`. The kit default is **`NoMotion`** — instant,
 no easing — on purpose; you opt a single widget in. Today's animatable surface is
 the accordion:
@@ -203,12 +203,12 @@ the accordion:
 ]
 ```
 
-`css/hylograph-ui.css` carries a `prefers-reduced-motion` block that neutralises
+`css/halogen-widgets.css` carries a `prefers-reduced-motion` block that neutralises
 these transitions for users who asked the OS to reduce motion, even once opted in.
 
 ## Theming
 
-Three themes ship in `hylograph-ui.css`:
+Three themes ship in `halogen-widgets.css`:
 
 - **`light`** (default) — Swiss-restrained whites and slate-grey ink.
 - **`dark`** — applied automatically by OS preference if no `data-theme` is set,
@@ -216,11 +216,11 @@ Three themes ship in `hylograph-ui.css`:
 - **`hylograph`** — opinionated Swiss-poster: warm paper, near-black ink, single
   vermilion accent, 2 px corners, Helvetica. Opt in via `data-theme="hylograph"`.
 
-To recolour the widgets, override the `--hg-*` variables on any host element —
-no PureScript change needed. The full token list lives in `hylograph-ui.css`
+To recolour the widgets, override the `--hw-*` variables on any host element —
+no PureScript change needed. The full token list lives in `halogen-widgets.css`
 (ink, ink-soft, line, surface, surface-alt, accent, danger, warn, ok,
-track-off, control-border, knob, shadow, backdrop, page-bg; plus `--hg-radius`
-and `--hg-font` which only `hylograph` overrides).
+track-off, control-border, knob, shadow, backdrop, page-bg; plus `--hw-radius`
+and `--hw-font` which only `hylograph` overrides).
 
 In **`hylograph` mode**, the showcase additionally typesets each widget's
 contract surface (Input record, Output ADT, component signature) via Sigil —

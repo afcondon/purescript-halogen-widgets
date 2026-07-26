@@ -12,7 +12,7 @@
 -- | a port from producing-with-your-feet's `Component.Pedal.Donut`. The arc,
 -- | pointer indicator, optional detent ticks, and face are SVG via Halogen's
 -- | `elementNS`; no external SVG library involved.
-module Hylograph.Halogen.UI.Knob
+module Halogen.Widgets.Knob
   ( Input
   , Output(..)
   , Query(..)
@@ -43,7 +43,7 @@ import Web.HTML.Window as Window
 import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent as ME
 
-import Hylograph.Halogen.UI.Style as Style
+import Halogen.Widgets.Style as Style
 
 type Input =
   { value :: Number

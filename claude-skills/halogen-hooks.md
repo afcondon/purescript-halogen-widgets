@@ -27,7 +27,7 @@ Hooks usage against the gotchas below.
 - **A classic `H.Component`** — when you need queries, multiple slots, or a
   long-lived component identity. (Both interop: a Hooks component *is* an
   `H.Component`.)
-- **The `hylograph-halogen-ui` widget library** — when the thing is a *reusable
+- **The `halogen-widgets` widget library** — when the thing is a *reusable
   widget* (accordion header, slider, modal). Those internalize these very
   behaviours behind the controlled contract (see that repo's `CONTRACT.md`).
   Rule of thumb: **a Hook is how you write a behaviour once in app code; a widget

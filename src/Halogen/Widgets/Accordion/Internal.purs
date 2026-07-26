@@ -21,7 +21,7 @@
 -- |     flips the chevron (▾ → ▸). This is the common web accordion.
 -- |   * `Horizontal` — panels sit side-by-side as columns (Triggerfish). A
 -- |     collapsed panel shrinks to a thin vertical strip with a rotated label.
-module Hylograph.Halogen.UI.Accordion.Internal
+module Halogen.Widgets.Accordion.Internal
   ( Input
   , Output(..)
   , Query(..)
@@ -41,8 +41,8 @@ import Effect.Aff.Class (class MonadAff, liftAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Hylograph.Halogen.UI.Motion (Motion(..), transition)
-import Hylograph.Halogen.UI.Style (sty, cls, clss, ink, inkSoft, line)
+import Halogen.Widgets.Motion (Motion(..), transition)
+import Halogen.Widgets.Style (sty, cls, clss, ink, inkSoft, line)
 
 -- | Controlled input. The parent owns `open`; everything else is config.
 type Input =

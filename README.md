@@ -1,4 +1,4 @@
-# purescript-hylograph-halogen-ui
+# purescript-halogen-widgets
 
 Reusable Halogen UI widgets for the Hylograph ecosystem, built on **one uniform
 controlled component contract**. An old-fashioned widget toolkit, on purpose:
@@ -42,13 +42,13 @@ spago build
 ## Theming (light / dark)
 
 Every colour is a CSS custom property with a baked-in light fallback —
-`var(--hg-ink, #2b2b2b)`. So the widgets are **self-contained** (they render
+`var(--hw-ink, #2b2b2b)`. So the widgets are **self-contained** (they render
 with the light palette even with no stylesheet) *and* **themeable**: include
-`css/hylograph-ui.css` (or just define the `--hg-*` variables yourself) and you
+`css/halogen-widgets.css` (or just define the `--hw-*` variables yourself) and you
 get dark mode for free.
 
 ```html
-<link rel="stylesheet" href="hylograph-ui.css">
+<link rel="stylesheet" href="halogen-widgets.css">
 ```
 
 Dark mode follows the OS (`prefers-color-scheme`) automatically, or you can force
@@ -66,7 +66,7 @@ collapsing to a side-by-side column spine instead of a stacked row; reach for
 parent component:
 
 ```purescript
-import Hylograph.Halogen.UI.VAccordion as VAccordion
+import Halogen.Widgets.VAccordion as VAccordion
 
 type Slots = ( generate :: VAccordion.Slot Unit )
 

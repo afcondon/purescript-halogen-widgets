@@ -7,15 +7,15 @@
 -- | The PARENT owns `open` and renders the panel BODY itself. In a horizontal
 -- | layout the body is the column's content, shown only while that column is
 -- | open.
-module Hylograph.Halogen.UI.HAccordion
+module Halogen.Widgets.HAccordion
   ( module Export
   , component
   ) where
 
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
-import Hylograph.Halogen.UI.Accordion.Internal (Input, Output(..), Query(..), Slot, defaultInput, body) as Export
-import Hylograph.Halogen.UI.Accordion.Internal (Orientation(Horizontal), mkComponent)
+import Halogen.Widgets.Accordion.Internal (Input, Output(..), Query(..), Slot, defaultInput, body) as Export
+import Halogen.Widgets.Accordion.Internal (Orientation(Horizontal), mkComponent)
 
 component :: forall m. MonadAff m => H.Component Export.Query Export.Input Export.Output m
 component = mkComponent Horizontal

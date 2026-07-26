@@ -2,7 +2,7 @@
 -- | dismiss affordance. Chrome-function tier — polymorphic in the caller's
 -- | action `i`. (A stateful toast *host* that queues several of these is a
 -- | future leaf component; this is the atom it would render.)
-module Hylograph.Halogen.UI.Toast
+module Halogen.Widgets.Toast
   ( Variant(..)
   , ToastConfig
   , toast
@@ -13,7 +13,7 @@ import Prelude
 import Data.Maybe (Maybe, maybe)
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Hylograph.Halogen.UI.Style (sty, cls, accent, ok, warn, danger, uiFont)
+import Halogen.Widgets.Style (sty, cls, accent, ok, warn, danger, uiFont)
 
 -- | Closed set of severities — an ADT, not a String (contract: ADTs for closed
 -- | alternatives).
@@ -36,7 +36,7 @@ toast :: forall w i. ToastConfig i -> HH.HTML w i
 toast config =
   HH.div
     [ cls "hg-toast"
-    , sty $ "display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--hg-radius,8px);"
+    , sty $ "display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--hw-radius,8px);"
         <> "font-family:" <> uiFont <> ";font-size:13px;color:#fff;"
         <> "box-shadow:0 4px 14px #0000002a;background:" <> variantColor config.variant
     ]

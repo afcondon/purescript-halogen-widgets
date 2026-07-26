@@ -15,7 +15,7 @@
 -- |   * `open`, `query`, and the cascade interaction state (`hovered`,
 -- |     `leafFocus`, `flipLeft`) are EPHEMERAL — the widget owns them and never
 -- |     surfaces them.
-module Hylograph.Halogen.UI.Select
+module Halogen.Widgets.Select
   ( Option
   , OptionGroup
   , Input
@@ -51,7 +51,7 @@ import Web.HTML.HTMLElement (blur, toElement)
 import Web.HTML.Window (innerWidth)
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
-import Hylograph.Halogen.UI.Style (sty, cls, ink, inkSoft, accent, surface, surfaceAlt, line, uiFont)
+import Halogen.Widgets.Style (sty, cls, ink, inkSoft, accent, surface, surfaceAlt, line, uiFont)
 
 type Option = { value :: String, label :: String }
 
@@ -361,7 +361,7 @@ render st =
       [ cls "hg-select__control"
       , HE.onClick \_ -> Toggle
       , sty $ "display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;z-index:45;"
-          <> "padding:6px 10px;border:1px solid " <> line <> ";border-radius:var(--hg-radius,6px);"
+          <> "padding:6px 10px;border:1px solid " <> line <> ";border-radius:var(--hw-radius,6px);"
           <> "background:" <> surface <> ";font-size:13px;"
           <> (if st.input.disabled then "cursor:default;" else "cursor:pointer;")
           <> "color:" <> (if isPlaceholder then inkSoft else ink)
@@ -381,7 +381,7 @@ render st =
       , HP.ref panelRef
       , sty $ "position:absolute;top:calc(100% + 4px);z-index:50;"
           <> (if cascade then "left:0;min-width:100%;width:max-content;" else "left:0;right:0;")
-          <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hg-radius,6px);"
+          <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hw-radius,6px);"
           <> "box-shadow:0 6px 20px #00000022;"
           -- Cascade must NOT clip — its submenus escape the panel box.
           <> (if cascade then "overflow:visible" else "max-height:240px;overflow:auto")
@@ -452,7 +452,7 @@ render st =
       [ cls ("hg-select__submenu" <> if st.flipLeft then " hg-select__submenu--left" else "")
       , sty $ "position:absolute;top:-1px;z-index:60;min-width:190px;"
           <> (if st.flipLeft then "right:100%;left:auto;" else "left:100%;")
-          <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hg-radius,6px);"
+          <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hw-radius,6px);"
           <> "box-shadow:0 6px 20px #00000022;max-height:280px;overflow:auto"
       ]
       (mapWithIndex (submenuLeaf) g.options)

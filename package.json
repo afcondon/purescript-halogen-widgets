@@ -1,5 +1,5 @@
 {
-  "name": "purescript-hylograph-halogen-ui",
+  "name": "purescript-halogen-widgets",
   "version": "0.1.0",
   "description": "Reusable Halogen UI widgets on one uniform controlled component contract.",
   "type": "module",

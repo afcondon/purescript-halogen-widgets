@@ -103,7 +103,7 @@ library that machinery is *inside* `VAccordion`; consumers never write it again.
 Every widget module exports the same surface, in the same order:
 
 ```purescript
-module Hylograph.Halogen.UI.Thing
+module Halogen.Widgets.Thing
   ( Input          -- controlled value + config (a record)
   , Output(..)     -- requests, not facts
   , Query(..)      -- imperative parent->child escape hatch (often unused)

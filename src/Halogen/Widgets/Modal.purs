@@ -6,7 +6,7 @@
 -- |
 -- | The backdrop and panel are siblings (not nested), so a click inside the
 -- | panel never reaches the backdrop's `onClose` — no `stopPropagation` needed.
-module Hylograph.Halogen.UI.Modal
+module Halogen.Widgets.Modal
   ( ModalConfig
   , modal
   ) where
@@ -15,7 +15,7 @@ import Prelude
 
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Hylograph.Halogen.UI.Style (sty, cls, ink, inkSoft, surface, line, uiFont, backdrop)
+import Halogen.Widgets.Style (sty, cls, ink, inkSoft, surface, line, uiFont, backdrop)
 
 type ModalConfig i =
   { open :: Boolean
@@ -43,7 +43,7 @@ modal config body =
       , HH.div
           [ cls "hg-modal__panel"
           , sty $ "position:relative;min-width:320px;max-width:min(560px,92vw);max-height:88vh;"
-              <> "overflow:auto;background:" <> surface <> ";border-radius:var(--hg-radius,10px);"
+              <> "overflow:auto;background:" <> surface <> ";border-radius:var(--hw-radius,10px);"
               <> "box-shadow:0 12px 40px #00000033;padding:0"
           ]
           [ HH.div

@@ -1,6 +1,6 @@
 -- | A controlled integer stepper: ‹ value › with clampInted bounds. The parent
 -- | owns `value`; the arrows request `value ± step` (clampInted) via `Changed`.
-module Hylograph.Halogen.UI.Stepper
+module Halogen.Widgets.Stepper
   ( Input
   , Output(..)
   , Query(..)
@@ -17,7 +17,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Hylograph.Halogen.UI.Style (sty, cls, ink, inkSoft, surfaceAlt, line, uiFont, monoFont)
+import Halogen.Widgets.Style (sty, cls, ink, inkSoft, surfaceAlt, line, uiFont, monoFont)
 
 type Input =
   { value :: Int
@@ -94,7 +94,7 @@ render { input } =
       [ cls "hg-stepper__btn"
       , HE.onClick \_ -> act
       , HP.disabled (input.disabled || atEnd)
-      , sty $ "width:22px;height:22px;border-radius:var(--hg-radius,5px);border:1px solid #cfcabb;"
+      , sty $ "width:22px;height:22px;border-radius:var(--hw-radius,5px);border:1px solid #cfcabb;"
           <> "background:" <> surfaceAlt <> ";color:" <> inkSoft <> ";font-size:13px;line-height:1;"
           <> "border-color:" <> line <> ";"
           <> (if input.disabled || atEnd then "opacity:0.4;cursor:default" else "cursor:pointer")

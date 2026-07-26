@@ -1,7 +1,7 @@
 -- | A controlled on/off switch. The parent owns `value`; clicking requests the
 -- | opposite via `Changed`. The simplest instance of the contract — no
 -- | ephemeral state at all (see CONTRACT.md).
-module Hylograph.Halogen.UI.Toggle
+module Halogen.Widgets.Toggle
   ( Input
   , Output(..)
   , Query(..)
@@ -17,7 +17,7 @@ import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Hylograph.Halogen.UI.Style (sty, cls, accent, inkSoft, ink, uiFont, trackOff)
+import Halogen.Widgets.Style (sty, cls, accent, inkSoft, ink, uiFont, trackOff)
 
 type Input =
   { value :: Boolean
@@ -74,7 +74,7 @@ render { input } =
     ( [ HH.div
           [ cls "hg-toggle__track"
           , HE.onClick \_ -> Click
-          , sty $ "position:relative;width:34px;height:20px;border-radius:var(--hg-radius,10px);flex:0 0 auto;"
+          , sty $ "position:relative;width:34px;height:20px;border-radius:var(--hw-radius,10px);flex:0 0 auto;"
               <> "transition:background 120ms;"
               <> (if input.disabled then "cursor:default;" else "cursor:pointer;")
               <> "background:" <> (if input.value then accent else trackOff)

@@ -30,22 +30,22 @@ import Web.HTML.HTMLHtmlElement (toElement) as HTMLHtmlElement
 import Web.HTML.Window (document, localStorage) as Window
 import Web.Storage.Storage as Storage
 
-import Hylograph.Halogen.UI.Style (sty, cls)
-import Hylograph.Halogen.UI.Motion (defaultMotion)
-import Hylograph.Halogen.UI.VAccordion as VAccordion
-import Hylograph.Halogen.UI.HAccordion as HAccordion
-import Hylograph.Halogen.UI.Toggle as Toggle
-import Hylograph.Halogen.UI.Stepper as Stepper
-import Hylograph.Halogen.UI.Slider as Slider
-import Hylograph.Halogen.UI.Knob as Knob
-import Hylograph.Halogen.UI.DoubleKnob as DoubleKnob
-import Hylograph.Halogen.UI.SegmentedControl as Segmented
-import Hylograph.Halogen.UI.Select as Select
-import Hylograph.Halogen.UI.Compare as Compare
-import Hylograph.Halogen.UI.Modal as Modal
-import Hylograph.Halogen.UI.Panel as Panel
-import Hylograph.Halogen.UI.Field as Field
-import Hylograph.Halogen.UI.Toast as Toast
+import Halogen.Widgets.Style (sty, cls)
+import Halogen.Widgets.Motion (defaultMotion)
+import Halogen.Widgets.VAccordion as VAccordion
+import Halogen.Widgets.HAccordion as HAccordion
+import Halogen.Widgets.Toggle as Toggle
+import Halogen.Widgets.Stepper as Stepper
+import Halogen.Widgets.Slider as Slider
+import Halogen.Widgets.Knob as Knob
+import Halogen.Widgets.DoubleKnob as DoubleKnob
+import Halogen.Widgets.SegmentedControl as Segmented
+import Halogen.Widgets.Select as Select
+import Halogen.Widgets.Compare as Compare
+import Halogen.Widgets.Modal as Modal
+import Halogen.Widgets.Panel as Panel
+import Halogen.Widgets.Field as Field
+import Halogen.Widgets.Toast as Toast
 
 import Sigil
   ( parseToRenderType
@@ -308,7 +308,7 @@ siteHeader theme =
                   \their state, just as the contract says. Show, and tell." ]
     , HH.p [ cls "site-header__links" ]
         [ HH.a
-            [ HP.href "https://github.com/afcondon/purescript-hylograph-halogen-ui"
+            [ HP.href "https://github.com/afcondon/purescript-halogen-widgets"
             , HP.target "_blank"
             , cls "src-link"
             ]
@@ -1172,33 +1172,33 @@ globalCss :: String
 globalCss =
   """
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--hg-page-bg); color: var(--hg-ink);
-  font-family: var(--hg-font, system-ui,-apple-system,'Segoe UI',sans-serif); -webkit-font-smoothing: antialiased;
+body { margin: 0; background: var(--hw-page-bg); color: var(--hw-ink);
+  font-family: var(--hw-font, system-ui,-apple-system,'Segoe UI',sans-serif); -webkit-font-smoothing: antialiased;
   transition: background 200ms ease, color 200ms ease; }
 a { color: inherit; }
-.site-header { max-width: 1100px; margin: 0 auto; padding: 52px 32px 36px; border-bottom: 1px solid var(--hg-line); }
+.site-header { max-width: 1100px; margin: 0 auto; padding: 52px 32px 36px; border-bottom: 1px solid var(--hw-line); }
 .site-header__row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .site-header h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
-.site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
+.site-header p { margin: 10px 0 0; max-width: 64ch; color: var(--hw-ink-soft); font-size: 15px; line-height: 1.55; }
 .site-header__links { margin-top: 14px !important; }
 .src-link { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
-  text-decoration: none; color: var(--hg-accent);
-  border: 1px solid var(--hg-line); border-radius: var(--hg-radius, 6px); padding: 5px 12px;
+  text-decoration: none; color: var(--hw-accent);
+  border: 1px solid var(--hw-line); border-radius: var(--hw-radius, 6px); padding: 5px 12px;
   transition: background 150ms ease, border-color 150ms ease; }
-.src-link:hover { border-color: var(--hg-accent); background: color-mix(in srgb, var(--hg-accent) 8%, transparent); }
+.src-link:hover { border-color: var(--hw-accent); background: color-mix(in srgb, var(--hw-accent) 8%, transparent); }
 .page { display: grid; grid-template-columns: 200px 1fr; gap: 32px; max-width: 1100px; margin: 0 auto; }
 .nav { position: sticky; top: 0; align-self: start; padding: 40px 0 40px 32px; }
 .nav-group { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
-  text-transform: uppercase; color: var(--hg-ink-soft); }
+  text-transform: uppercase; color: var(--hw-ink-soft); }
 .nav-group:first-child { margin-top: 0; }
 .nav-link { display: block; padding: 4px 0; text-decoration: none; font-size: 14px; }
-.nav-link:hover { color: var(--hg-accent); }
+.nav-link:hover { color: var(--hw-accent); }
 .main { padding: 40px 32px 140px; min-width: 0; }
 .story { margin-bottom: 72px; scroll-margin-top: 24px; counter-reset: part; }
 .story-head { display: flex; align-items: baseline; gap: 12px; }
 .story-head h2 { margin: 0; font-size: 22px; font-weight: 600; }
-.tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hg-ink-soft); }
-.blurb { margin: 8px 0 22px; max-width: 64ch; color: var(--hg-ink-soft); font-size: 15px; line-height: 1.55; }
+.tier { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hw-ink-soft); }
+.blurb { margin: 8px 0 22px; max-width: 64ch; color: var(--hw-ink-soft); font-size: 15px; line-height: 1.55; }
 
 /* Numbered parts. A counter on `.story` numbers them contiguously, so the
  * Hylograph-only contract part never leaves a gap (light/dark read 01/02,
@@ -1210,22 +1210,22 @@ a { color: inherit; }
   counter-increment: part;
   content: counter(part, decimal-leading-zero);
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
-  font-size: 11px; font-weight: 600; color: var(--hg-accent); letter-spacing: 0.04em; }
+  font-size: 11px; font-weight: 600; color: var(--hw-accent); letter-spacing: 0.04em; }
 .story-part__label { font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--hg-ink-soft); font-weight: 600; }
+  color: var(--hw-ink-soft); font-weight: 600; }
 
 /* Hero: the live demo gets prominence — wide, centred, generous breath. */
 .story-stage { display: flex; align-items: center; justify-content: center;
   min-height: 160px; padding: 48px 32px;
-  background: var(--hg-surface); border: 1px solid var(--hg-line);
-  border-radius: var(--hg-radius, 12px);
+  background: var(--hw-surface); border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius, 12px);
   transition: background 200ms ease, border-color 200ms ease; }
 
 /* Reference parts recede: quiet inset on the page ground, hairline, no card. */
 .story-part--ref .story-part__body {
   padding: 16px 20px;
-  background: var(--hg-surface-alt); border: 1px solid var(--hg-line);
-  border-radius: var(--hg-radius, 8px); }
+  background: var(--hw-surface-alt); border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius, 8px); }
 .story-contract { display: flex; flex-direction: column; gap: 10px; }
 .story-contract__frag { font-size: 14px; }
 .story-contract__frag:empty { display: none; }
@@ -1233,17 +1233,17 @@ a { color: inherit; }
 /* Usage code, syntax-highlighted as native VDOM (no FFI). The token classes are
  * accents on otherwise-uncoloured text — keywords, constructors, strings,
  * numbers, operators; term variables and punctuation stay plain. */
-pre.code { margin: 0; overflow: auto; color: var(--hg-ink);
+pre.code { margin: 0; overflow: auto; color: var(--hw-ink);
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
   font-feature-settings: "calt" 1, "liga" 1, "ss01" 1, "ss02" 1;
   font-variant-ligatures: contextual common-ligatures;
   font-size: 12.5px; line-height: 1.7; }
-pre.code .tok-comment { color: var(--hg-ink-soft); font-style: italic; opacity: 0.85; }
-pre.code .tok-kw { color: var(--hg-accent); font-weight: 600; }
+pre.code .tok-comment { color: var(--hw-ink-soft); font-style: italic; opacity: 0.85; }
+pre.code .tok-kw { color: var(--hw-accent); font-weight: 600; }
 pre.code .tok-con { color: #3f9d6f; }
 pre.code .tok-string { color: #c98a4b; }
 pre.code .tok-num { color: #4a90c2; }
-pre.code .tok-op { color: var(--hg-ink-soft); }
+pre.code .tok-op { color: var(--hw-ink-soft); }
 
 @media (max-width: 820px) {
   .page { grid-template-columns: 1fr; }
