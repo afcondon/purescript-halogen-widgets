@@ -1,4 +1,4 @@
-# Hylograph Halogen UI
+# Halogen Widgets
 
 Load the **`halogen-widgets`** widget toolkit into context for *consuming*
 the library in a Halogen app — wiring widgets, owning their state, raising
@@ -22,11 +22,9 @@ state style; don't propose component refactors unless asked.
 ## Install
 
 ```bash
-# Path dep until the library is registry-published:
-# in your spago.yaml workspace:
+# Published to the registry. In your spago.yaml workspace:
 #   extraPackages:
-#     halogen-widgets:
-#       path: /Users/afc/work/afc-work/purescript-halogen-widgets
+#     halogen-widgets: "0.2.0"
 #
 # in your package dependencies:
 #   - halogen-widgets
