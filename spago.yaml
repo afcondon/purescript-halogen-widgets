@@ -9,7 +9,7 @@ package:
     tab-bar, slider. Every widget follows the same Input/Output/Query/receive
     rail so new ones are predictable to author and safe to delegate.
   publish:
-    version: 0.2.0
+    version: 0.2.1
     license: MIT
     location:
       githubOwner: afcondon

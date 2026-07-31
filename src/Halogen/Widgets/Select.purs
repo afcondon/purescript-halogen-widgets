@@ -125,6 +125,11 @@ type State =
   , hoverGen :: Int             -- ephemeral: hover-intent debounce generation
   , leafFocus :: Maybe Int      -- ephemeral: keyboard focus inside a submenu
   , flipLeft :: Boolean         -- ephemeral: submenu flipped left (edge overflow)
+  -- ephemeral: the control's viewport rect, measured on open. The panel renders
+  -- `position:fixed` from it so it (and its cascade submenus) escape any ancestor
+  -- `overflow` clipping — e.g. a host's scrolling pane. Nothing = not yet measured
+  -- (fallback to absolute).
+  , anchor :: Maybe { left :: Number, bottom :: Number, width :: Number }
   }
 
 -- The ref on the first panel, read to measure-and-flip the submenu on open.
@@ -147,7 +152,7 @@ component :: forall m. MonadAff m => H.Component Query Input Output m
 component =
   H.mkComponent
     { initialState: \input ->
-        { input, open: false, query: "", focusParent: Nothing, hovered: Nothing, hoverGen: 0, leafFocus: Nothing, flipLeft: false }
+        { input, open: false, query: "", focusParent: Nothing, hovered: Nothing, hoverGen: 0, leafFocus: Nothing, flipLeft: false, anchor: Nothing }
     , render
     , eval: H.mkEval H.defaultEval
         { handleAction = handleAction
@@ -168,10 +173,14 @@ handleAction = case _ of
     { input } <- H.get
     when (not input.disabled) do
       opening <- H.gets (not <<< _.open)
+      -- Measure the control's viewport rect BEFORE the panel renders, so the panel
+      -- can position `fixed` from it (escaping any ancestor overflow clip).
+      manchor <- if opening then measureRoot else pure Nothing
       let selGroup = if opening then input.selected >>= groupOf input else Nothing
       H.modify_ \s -> s
         { open = opening
         , query = ""
+        , anchor = manchor
         -- On open, pre-expand the submenu holding the current selection (and
         -- highlight that parent).
         , hovered = selGroup
@@ -219,6 +228,17 @@ blurRoot = do
 -- Measure the first panel's right edge against the viewport; flip the submenu to
 -- the left when it would overflow. A one-shot measure on open (per the spec) —
 -- no live popper.
+-- Measure the control (root) rect for the fixed-panel anchor. Read before the
+-- panel is inserted, so the root box is just the control.
+measureRoot :: forall m. MonadAff m => H.HalogenM State Action () Output m (Maybe { left :: Number, bottom :: Number, width :: Number })
+measureRoot = do
+  mEl <- H.getHTMLElementRef rootRef
+  case mEl of
+    Nothing -> pure Nothing
+    Just el -> do
+      r <- liftEffect (getBoundingClientRect (toElement el))
+      pure (Just { left: r.left, bottom: r.bottom, width: r.width })
+
 measureFlip :: forall m. MonadAff m => H.HalogenM State Action () Output m Unit
 measureFlip = do
   mEl <- H.getHTMLElementRef panelRef
@@ -375,12 +395,23 @@ render st =
   -- Cascade is the fly-out presentation of a grouped menu.
   cascade = st.input.cascade && grouped
 
+  -- Positioning: `fixed` from the measured control rect, so the panel and its
+  -- cascade submenus escape any ancestor `overflow` (a host's scrolling pane).
+  -- Falls back to the old `absolute` if the rect hasn't been measured yet.
+  panelPos = case st.anchor of
+    Just a ->
+      "position:fixed;top:" <> show (a.bottom + 4.0) <> "px;left:" <> show a.left <> "px;"
+        <> (if cascade then "min-width:" <> show a.width <> "px;width:max-content;"
+            else "width:" <> show a.width <> "px;")
+    Nothing ->
+      "position:absolute;top:calc(100% + 4px);"
+        <> (if cascade then "left:0;min-width:100%;width:max-content;" else "left:0;right:0;")
+
   panel =
     HH.div
       [ cls "hg-select__panel"
       , HP.ref panelRef
-      , sty $ "position:absolute;top:calc(100% + 4px);z-index:50;"
-          <> (if cascade then "left:0;min-width:100%;width:max-content;" else "left:0;right:0;")
+      , sty $ panelPos <> "z-index:50;"
           <> "background:" <> surface <> ";border:1px solid " <> line <> ";border-radius:var(--hw-radius,6px);"
           <> "box-shadow:0 6px 20px #00000022;"
           -- Cascade must NOT clip — its submenus escape the panel box.
