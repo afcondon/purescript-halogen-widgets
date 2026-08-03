@@ -69,6 +69,11 @@ type OptionGroup = { label :: String, options :: Array Option }
 -- | `cascade` chooses the grouped *presentation*: `false` (default) is the
 -- | inline grouped list; `true` is the fly-out submenu menu. No effect without
 -- | `groups`.
+-- | `minWidth` is an optional CSS length (e.g. `"70px"`) for the control box.
+-- | `Nothing` keeps the historical `180px` floor; `Just w` overrides it, so a
+-- | caller can build a narrow selector (a one-letter key picker, say). It only
+-- | floors the *control* — the dropdown panel already sizes to the measured
+-- | control width, so the menu tracks whatever width you choose.
 type Input =
   { options :: Array Option
   , groups :: Array OptionGroup
@@ -77,25 +82,26 @@ type Input =
   , placeholder :: String
   , searchable :: Boolean
   , disabled :: Boolean
+  , minWidth :: Maybe String
   }
 
 -- | The flat on-ramp, unchanged: `groups` defaults to `[]`, so every existing
 -- | caller compiles and behaves exactly as before.
 defaultInput :: Array Option -> Input
 defaultInput options =
-  { options, groups: [], cascade: false, selected: Nothing, placeholder: "Select…", searchable: false, disabled: false }
+  { options, groups: [], cascade: false, selected: Nothing, placeholder: "Select…", searchable: false, disabled: false, minWidth: Nothing }
 
 -- | The grouped on-ramp (inline list): named groups, headers over their leaves.
 groupedInput :: Array OptionGroup -> Input
 groupedInput groups =
-  { options: [], groups, cascade: false, selected: Nothing, placeholder: "Select…", searchable: false, disabled: false }
+  { options: [], groups, cascade: false, selected: Nothing, placeholder: "Select…", searchable: false, disabled: false, minWidth: Nothing }
 
 -- | The cascade on-ramp (fly-out submenus): named groups, each revealed as a
 -- | side popup on hover/click/keyboard. Same controlled `selected` and `Selected`
 -- | output as every other shape — only the panel interaction differs.
 cascadingInput :: Array OptionGroup -> Input
 cascadingInput groups =
-  { options: [], groups, cascade: true, selected: Nothing, placeholder: "Select…", searchable: false, disabled: false }
+  { options: [], groups, cascade: true, selected: Nothing, placeholder: "Select…", searchable: false, disabled: false, minWidth: Nothing }
 
 data Output = Selected String
 
@@ -360,7 +366,8 @@ render st =
     , HP.ref rootRef
     , HP.tabIndex 0
     , HE.onKeyDown HandleKey
-    , sty $ "position:relative;display:inline-block;min-width:180px;outline:none;font-family:" <> uiFont
+    , sty $ "position:relative;display:inline-block;min-width:" <> fromMaybe "180px" st.input.minWidth
+        <> ";outline:none;font-family:" <> uiFont
         <> ";" <> if st.input.disabled then "opacity:0.5" else ""
     ]
     ( [ control ] <> if st.open then [ backdrop, panel ] else [] )

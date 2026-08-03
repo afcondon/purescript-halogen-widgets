@@ -41,6 +41,7 @@ import Halogen.Widgets.Knob as Knob
 import Halogen.Widgets.DoubleKnob as DoubleKnob
 import Halogen.Widgets.SegmentedControl as Segmented
 import Halogen.Widgets.Select as Select
+import Halogen.Widgets.MultiSelect as MultiSelect
 import Halogen.Widgets.Compare as Compare
 import Halogen.Widgets.Modal as Modal
 import Halogen.Widgets.Panel as Panel
@@ -108,6 +109,7 @@ type Slots =
   , select :: Select.Slot Unit
   , selectGrouped :: Select.Slot Unit
   , selectCascade :: Select.Slot Unit
+  , multiSelect :: MultiSelect.Slot Unit
   , compare :: Compare.Slot Unit
   , themeSwitch :: Segmented.Slot Unit
   )
@@ -145,6 +147,9 @@ _selectGrouped = Proxy
 _selectCascade :: Proxy "selectCascade"
 _selectCascade = Proxy
 
+_multiSelect :: Proxy "multiSelect"
+_multiSelect = Proxy
+
 _compare :: Proxy "compare"
 _compare = Proxy
 
@@ -168,6 +173,7 @@ type State =
   , comparePos :: Number
   , selected :: Maybe String
   , selectedScale :: Maybe String
+  , palettes :: Array String
   , modalOpen :: Boolean
   , toastShown :: Boolean
   }
@@ -187,6 +193,7 @@ initialState =
   , comparePos: 50.0
   , selected: Nothing
   , selectedScale: Just "PhrygianDominant"
+  , palettes: [ "diatonic", "borrowed" ]
   , modalOpen: false
   , toastShown: false
   }
@@ -206,6 +213,7 @@ data Action
   | CompareMoved Number
   | SelSelected String
   | ScaleSelected String
+  | PalettesChanged (Array String)
   | OpenModal
   | CloseModal
   | ShowToast
@@ -271,6 +279,7 @@ handleAction = case _ of
   CompareMoved p -> H.modify_ _ { comparePos = p }
   SelSelected v -> H.modify_ _ { selected = Just v }
   ScaleSelected v -> H.modify_ _ { selectedScale = Just v }
+  PalettesChanged vs -> H.modify_ _ { palettes = vs }
   OpenModal -> H.modify_ _ { modalOpen = true }
   CloseModal -> H.modify_ _ { modalOpen = false }
   ShowToast -> H.modify_ _ { toastShown = true }
@@ -331,6 +340,7 @@ navColumn =
     , navLink "select" "Select"
     , navLink "select-grouped" "Select · grouped"
     , navLink "select-cascade" "Select · submenus"
+    , navLink "multiselect" "MultiSelect"
     , navLink "compare" "Compare"
     , HH.div [ cls "nav-group" ] [ HH.text "Chrome functions" ]
     , navLink "panel" "Panel"
@@ -757,6 +767,25 @@ stories st =
           (\(Select.Selected v) -> ScaleSelected v)
       )
   , story st
+      { anchor: "multiselect", title: "MultiSelect", tier: "leaf · controlled + ephemeral"
+      , blurb: "The **multi**-select sibling of `Select`: a compact control whose label summarises the selection (comma list up to `maxLabels`, then \"N selected\"), opening a popover of checkable options — several active at once. `selected` is a controlled `Array String`; toggling any row raises `SelectedMany` with the FULL new array, so the parent just stores what it is handed. The concrete case is a *palettes* picker (diatonic / borrowed / McMullen / Butler / Stock), several on together."
+      , code: multiSelectCode }
+      ( HH.div [ sty "width:100%;display:flex;flex-direction:column;gap:10px;align-items:flex-start" ]
+          [ HH.slot _multiSelect unit MultiSelect.component
+              ((MultiSelect.defaultInput
+                  [ { value: "diatonic",  label: "Diatonic" }
+                  , { value: "borrowed",  label: "Borrowed" }
+                  , { value: "mcmullen",  label: "McMullen" }
+                  , { value: "butler",    label: "Butler" }
+                  , { value: "stock",     label: "Stock" }
+                  ])
+                { selected = st.palettes, placeholder = "Choose palettes…", maxLabels = 3 })
+              (\(MultiSelect.SelectedMany vs) -> PalettesChanged vs)
+          , HH.span [ sty "font:12px 'SF Mono',Menlo,monospace;color:#5a564b" ]
+              [ HH.text ("selected: " <> show st.palettes) ]
+          ]
+      )
+  , story st
       { anchor: "compare", title: "Compare", tier: "leaf · controlled"
       , blurb: "A before/after comparison wipe. The two layers are static `PlainHTML` — comparing renderings, not interacting through them — which is what lets it be a leaf component: the widget owns the drag, the layers arrive inert. Drag the handle."
       , code: compareCode }
@@ -901,7 +930,7 @@ allContracts =
   , { slug: "select"
     , fragments:
         [ TypeSyn "Option" "Record ( value :: String, label :: String )"
-        , TypeSyn "Input" "Record ( options :: Array Option, groups :: Array OptionGroup, cascade :: Boolean, selected :: Maybe String, placeholder :: String, searchable :: Boolean, disabled :: Boolean )"
+        , TypeSyn "Input" "Record ( options :: Array Option, groups :: Array OptionGroup, cascade :: Boolean, selected :: Maybe String, placeholder :: String, searchable :: Boolean, disabled :: Boolean, minWidth :: Maybe String )"
         , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
@@ -917,6 +946,13 @@ allContracts =
     , fragments:
         [ Signature "cascadingInput" "Array OptionGroup -> Input"
         , DataDecl "Output" [ { name: "Selected", args: [ "String" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "multiselect"
+    , fragments:
+        [ TypeSyn "Input" "Record ( options :: Array Option, groups :: Array OptionGroup, selected :: Array String, placeholder :: String, searchable :: Boolean, disabled :: Boolean, minWidth :: Maybe String, maxLabels :: Int )"
+        , DataDecl "Output" [ { name: "SelectedMany", args: [ "Array String" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
         ]
     }
@@ -1124,6 +1160,23 @@ HH.slot _select unit Select.component
      , { label: "Melodic minor modes",  options: melodicMinorModes } ])
     { selected = state.scale, placeholder = "Choose a scale…" }
   (\(Select.Selected v) -> ScaleSelected v)"""
+
+multiSelectCode :: String
+multiSelectCode =
+  """-- controlled `selected :: Array String`; toggling raises the FULL new array
+HH.slot _palettes unit MultiSelect.component
+  (MultiSelect.defaultInput
+     [ { value: "diatonic", label: "Diatonic" }
+     , { value: "borrowed", label: "Borrowed" }
+     , { value: "mcmullen", label: "McMullen" }
+     , { value: "butler",   label: "Butler" }
+     , { value: "stock",    label: "Stock" } ])
+    { selected = state.palettes    -- Array String
+    , placeholder = "Choose palettes…"
+    , maxLabels = 3 }              -- comma list up to 3, then "N selected"
+  (\(MultiSelect.SelectedMany vs) -> PalettesChanged vs)
+
+PalettesChanged vs -> H.modify_ _ { palettes = vs }"""
 
 compareCode :: String
 compareCode =
