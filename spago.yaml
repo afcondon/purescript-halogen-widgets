@@ -20,6 +20,7 @@ package:
     - datetime: ">=6.1.0 <7.0.0"
     - dom-indexed: ">=13.0.0 <14.0.0"
     - effect: ">=4.0.0 <5.0.0"
+    - foldable-traversable: ">=6.0.0 <7.0.0"
     - halogen: ">=7.0.0 <8.0.0"
     - halogen-subscriptions: ">=2.0.0 <3.0.0"
     - integers: ">=6.0.0 <7.0.0"
