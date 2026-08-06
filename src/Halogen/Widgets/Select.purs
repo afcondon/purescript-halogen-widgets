@@ -387,7 +387,15 @@ render st =
     HH.div
       [ cls "hg-select__control"
       , HE.onClick \_ -> Toggle
-      , sty $ "display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;z-index:45;"
+      -- z-index ABOVE the backdrop only while THIS widget is open, so its own
+      -- control stays clickable to toggle shut. Unconditionally raising it (as
+      -- this did until 0.3.1) lifted every instance's control above every other
+      -- instance's backdrop: clicking a second dropdown went straight to that
+      -- control instead of landing on the open one's backdrop, so they stacked up
+      -- open together — three at once in a toolbar of them. Below the backdrop
+      -- when closed, the first click closes whatever is open, as menus should.
+      , sty $ "display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative;"
+          <> (if st.open then "z-index:45;" else "")
           <> "padding:6px 10px;border:1px solid " <> line <> ";border-radius:var(--hw-radius,6px);"
           <> "background:" <> surface <> ";font-size:13px;"
           <> (if st.input.disabled then "cursor:default;" else "cursor:pointer;")
