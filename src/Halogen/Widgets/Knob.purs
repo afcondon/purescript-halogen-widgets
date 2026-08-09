@@ -26,16 +26,12 @@ import Prelude
 import Data.Array (range)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
-import Data.Number (cos, sin, pi)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (delay)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
-import Unsafe.Coerce (unsafeCoerce)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener, removeEventListener)
 import Web.HTML (window)
@@ -44,6 +40,8 @@ import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.UIEvent.MouseEvent as ME
 
 import Halogen.Widgets.Style as Style
+import Halogen.Widgets.Svg (svgAttr, svgEl, svgOnDown)
+import Halogen.Widgets.Knob.Geometry (arcPath, maxAngle, minAngle, pointerAt, tickAngle, valToAngle)
 
 type Input =
   { value :: Number
@@ -201,58 +199,8 @@ dragEmitter = HS.makeEmitter \emit -> do
 -- SVG rendering
 --------------------------------------------------------------------------------
 
-svgEl :: forall w i. String -> Array (HH.IProp () i) -> Array (HH.HTML w i) -> HH.HTML w i
-svgEl name = HH.elementNS (HH.Namespace "http://www.w3.org/2000/svg") (HH.ElemName name)
-
-svgAttr :: forall r i. String -> String -> HH.IProp r i
-svgAttr n v = HP.attr (HH.AttrName n) v
-
--- SVG events aren't in DOM.HTML.Indexed's element rows, so the typed
--- `HE.onMouseDown` doesn't apply. This is the standard Halogen-SVG escape:
--- `HE.handler` takes a raw `Event -> i`, and we unsafeCoerce the `MouseEvent`
--- callback into one. Same pattern as Triggerfish/Donut.
-svgOnDown :: forall r i. (MouseEvent -> i) -> HH.IProp r i
-svgOnDown f = HE.handler (EventType "mousedown") (unsafeCoerce f)
-
-minAngle :: Number
-minAngle = -5.0 * pi / 6.0
-
-maxAngle :: Number
-maxAngle = 5.0 * pi / 6.0
-
-sweep :: Number
-sweep = maxAngle - minAngle
-
-valToAngle :: Number -> Number -> Number -> Number
-valToAngle lo hi v =
-  let
-    frac = if hi == lo then 0.0 else (v - lo) / (hi - lo)
-  in
-    minAngle + frac * sweep
-
--- Filled donut wedge from a0 to a1 (radians; 0 = up on screen).
-arcPath :: Number -> Number -> Number -> Number -> Number -> Number -> String
-arcPath cx cy outerR innerR a0 a1 =
-  let
-    toSvg a = a - pi / 2.0
-    sa = toSvg a0
-    ea = toSvg a1
-    ox0 = cx + outerR * cos sa
-    oy0 = cy + outerR * sin sa
-    ox1 = cx + outerR * cos ea
-    oy1 = cy + outerR * sin ea
-    ix0 = cx + innerR * cos sa
-    iy0 = cy + innerR * sin sa
-    ix1 = cx + innerR * cos ea
-    iy1 = cy + innerR * sin ea
-    largeArc = if (a1 - a0) > pi then "1" else "0"
-    s = show
-  in
-    "M" <> s ox0 <> "," <> s oy0
-      <> " A" <> s outerR <> "," <> s outerR <> " 0 " <> largeArc <> ",1 " <> s ox1 <> "," <> s oy1
-      <> " L" <> s ix1 <> "," <> s iy1
-      <> " A" <> s innerR <> "," <> s innerR <> " 0 " <> largeArc <> ",0 " <> s ix0 <> "," <> s iy0
-      <> " Z"
+-- `svgEl` / `svgAttr` / `svgOnDown` now live in `Halogen.Widgets.Svg` (imported
+-- above), since every hand-rolled SVG widget needs the same three.
 
 render :: forall m. State -> H.ComponentHTML Action () m
 render { input } =
@@ -263,9 +211,7 @@ render { input } =
     rOuter = 20.0
     rInner = 14.0
     angle = valToAngle input.min input.max input.value
-    pointerR = rOuter - 4.0
-    px = cx + pointerR * cos (angle - pi / 2.0)
-    py = cy + pointerR * sin (angle - pi / 2.0)
+    ptr = pointerAt cx cy (rOuter - 4.0) angle
     s = show
   in
     HH.div
@@ -309,8 +255,8 @@ render { input } =
                     svgEl "line"
                       [ svgAttr "x1" (s cx)
                       , svgAttr "y1" (s cy)
-                      , svgAttr "x2" (s px)
-                      , svgAttr "y2" (s py)
+                      , svgAttr "x2" (s ptr.x)
+                      , svgAttr "y2" (s ptr.y)
                       , svgAttr "stroke" Style.ink
                       , svgAttr "stroke-width" "1.6"
                       , svgAttr "stroke-linecap" "round"
@@ -348,16 +294,15 @@ detents n cx cy rOuter
         s = show
         tick i =
           let
-            frac = toNumber i / toNumber (n - 1)
-            ang = (minAngle + frac * sweep) - pi / 2.0
-            r0 = rOuter + 1.2
-            r1 = rOuter + 3.4
+            ang = tickAngle n i
+            a = pointerAt cx cy (rOuter + 1.2) ang
+            b = pointerAt cx cy (rOuter + 3.4) ang
           in
             svgEl "line"
-              [ svgAttr "x1" (s (cx + r0 * cos ang))
-              , svgAttr "y1" (s (cy + r0 * sin ang))
-              , svgAttr "x2" (s (cx + r1 * cos ang))
-              , svgAttr "y2" (s (cy + r1 * sin ang))
+              [ svgAttr "x1" (s a.x)
+              , svgAttr "y1" (s a.y)
+              , svgAttr "x2" (s b.x)
+              , svgAttr "y2" (s b.y)
               , svgAttr "stroke" Style.inkSoft
               , svgAttr "stroke-width" "0.8"
               ]
