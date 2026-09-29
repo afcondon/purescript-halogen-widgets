@@ -7,6 +7,16 @@ the ship-it-and-dogfood goal, **[effort]** rough size, **→** dependencies.
 
 ## Recently landed (post-v0.1)
 
+- **Quiet forms: `Quiet` and `Ledger` (0.4.0).** Tufte-style controls (number,
+  text, select, choose, toggle, the mark-as-switch, labelled values, fault,
+  hover-revealed row tools, the key) and a grid ledger that lines up rows of
+  every kind. The library's first **view functions**: stateless and
+  numerous, so no slot per cell, but still controlled (CONTRACT.md, "When a
+  widget is a view function"). Their reveals live in `css/halogen-widgets.css`
+  (`hw-quiet-*`, `hw-ledger-*`, new `--hw-faint` token), light and dark.
+  Showcase: "Quiet ledger". First consumer: Triggerfish's router
+  (`docs/kb/plans/quiet-forms.md`).
+
 - **Grouped + cascade `Select`.** Additive `groups :: Array OptionGroup` and a
   `cascade :: Boolean` flag, with `groupedInput` / `cascadingInput` on-ramps. Two
   presentations of the same grouped data: the **inline** list (non-selectable

@@ -10,9 +10,9 @@ import Data.Array (find, mapMaybe, mapWithIndex)
 import Data.Array as Array
 import Data.Int as Int
 import Data.String.CodeUnits as SCU
-import Data.Foldable (traverse_)
+import Data.Foldable (for_, traverse_)
 import Data.FoldableWithIndex (forWithIndex_)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Effect.Aff (delay)
@@ -47,6 +47,8 @@ import Halogen.Widgets.Modal as Modal
 import Halogen.Widgets.Panel as Panel
 import Halogen.Widgets.Field as Field
 import Halogen.Widgets.Toast as Toast
+import Halogen.Widgets.Quiet as Quiet
+import Halogen.Widgets.Ledger as Ledger
 
 import Sigil
   ( parseToRenderType
@@ -176,7 +178,25 @@ type State =
   , palettes :: Array String
   , modalOpen :: Boolean
   , toastShown :: Boolean
+  , sensors :: Array Sensor
   }
+
+-- | One row of the quiet-ledger demo: a sensor at a weather station. Every
+-- | editable value is kept as the text typed; the parent parses it where it
+-- | needs a number (to spot a threshold fault), exactly as a real app would.
+type Sensor =
+  { station :: String
+  , kind :: SensorKind
+  , on :: Boolean
+  , unit :: String
+  , every :: String
+  , low :: String
+  , high :: String
+  }
+
+data SensorKind = Temperature | Humidity | Brightness
+
+derive instance eqSensorKind :: Eq SensorKind
 
 initialState :: State
 initialState =
@@ -196,7 +216,15 @@ initialState =
   , palettes: [ "diatonic", "borrowed" ]
   , modalOpen: false
   , toastShown: false
+  , sensors:
+      [ sensor "North field" Temperature "°C" "60" "-5" "35"
+      , sensor "North field" Humidity "%" "300" "20" "95"
+      , sensor "Greenhouse" Temperature "°C" "30" "12" "8"
+      , (sensor "Greenhouse" Brightness "lux" "600" "200" "90000") { on = false }
+      ]
   }
+  where
+  sensor station kind unit every low high = { station, kind, on: true, unit, every, low, high }
 
 data Action
   = Initialize
@@ -218,6 +246,13 @@ data Action
   | CloseModal
   | ShowToast
   | HideToast
+  | SensorToggle Int
+  | SensorRemove Int
+  | SensorAdd String String
+  | SensorSet Int SensorField String
+
+-- | Which text field of a sensor an edit is for.
+data SensorField = FUnit | FEvery | FLow | FHigh
 
 component :: forall q i o m. MonadAff m => H.Component q i o m
 component =
@@ -284,6 +319,12 @@ handleAction = case _ of
   CloseModal -> H.modify_ _ { modalOpen = false }
   ShowToast -> H.modify_ _ { toastShown = true }
   HideToast -> H.modify_ _ { toastShown = false }
+  SensorToggle ix -> H.modify_ \s -> s { sensors = Array.mapWithIndex (\j x -> if j == ix then x { on = not x.on } else x) s.sensors }
+  SensorRemove ix -> H.modify_ \s -> s { sensors = fromMaybe s.sensors (Array.deleteAt ix s.sensors) }
+  SensorAdd station k -> for_ (parseKind k) \kind ->
+    H.modify_ \s -> s { sensors = insertAfterStation station
+      { station, kind, on: true, unit: defaultUnit kind, every: "60", low: "0", high: "100" } s.sensors }
+  SensorSet ix field v -> H.modify_ \s -> s { sensors = Array.mapWithIndex (\j x -> if j == ix then setField field v x else x) s.sensors }
 
 render :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 render st =
@@ -347,6 +388,8 @@ navColumn =
     , navLink "field" "Field"
     , navLink "modal" "Modal"
     , navLink "toast" "Toast"
+    , HH.div [ cls "nav-group" ] [ HH.text "Quiet forms" ]
+    , navLink "quiet-ledger" "Quiet ledger"
     ]
 
 navLink :: forall m. String -> String -> H.ComponentHTML Action Slots m
@@ -834,7 +877,110 @@ stories st =
               else HH.text ""
           ]
       )
+  , story st
+      { anchor: "quiet-ledger", title: "Quiet ledger", tier: "view functions · controlled"
+      , blurb: "Form controls that draw no chrome until touched, laid on one grid. Every value is still editable in place: hover a value for a dotted hairline, focus it for a solid one. The coloured mark is the row's category **and** its switch (filled is on); ✕ appears on the hovered row; the fault shows only where something is wrong. View functions, not components: the page owns every value, and a ledger can hold hundreds of cells without a slot each."
+      , code: quietLedgerCode }
+      ( quietLedgerDemo st )
   ]
+
+-- | The quiet-ledger demo: sensors grouped by station.
+quietLedgerDemo :: forall w. State -> HH.HTML w Action
+quietLedgerDemo st =
+  HH.div_
+    [ Quiet.key (map (\k -> { name: kindName k, hue: kindHue k, count: Array.length (Array.filter (\x -> x.kind == k) st.sensors) }) kinds)
+    , Ledger.ledger
+        { columns:
+            [ { head: "Station", track: "8em", align: Quiet.Start }
+            , { head: "Sensor", track: "8.5em", align: Quiet.Start }
+            , { head: "Unit", track: "4.5em", align: Quiet.Start }
+            , { head: "Every s", track: "3.6em", align: Quiet.End }
+            , { head: "", track: "minmax(12em, 1fr)", align: Quiet.Start }
+            , { head: "", track: "9em", align: Quiet.Start }
+            ]
+        , minWidth: "620px"
+        }
+        (Array.concatMap stationRows stations)
+    ]
+  where
+  indexed = Array.mapWithIndex (\ix x -> { ix, x }) st.sensors
+  stations = Array.nub (map _.station st.sensors) <> (if Array.elem "Barn" (map _.station st.sensors) then [] else [ "Barn" ])
+  stationRows name =
+    let mine = Array.filter (\r -> r.x.station == name) indexed
+    in Array.mapWithIndex (sensorRow name) mine
+         <> (if Array.null mine then [ Ledger.Entry { first: true, off: false, cells: [ Ledger.name { name, sub: "no sensors" } ] } ] else [])
+         <> [ Ledger.Add { from: 1, content: Quiet.choose
+                { prompt: "+ sensor", label: "add a sensor to " <> name
+                , groups: [ { name: "", options: map (\k -> { value: kindKey k, label: kindName k }) kinds } ]
+                , onChoose: SensorAdd name } } ]
+  sensorRow name n r =
+    Ledger.Entry
+      { first: n == 0
+      , off: not r.x.on
+      , cells:
+          [ if n == 0 then Ledger.name { name, sub: "" } else HH.text ""
+          , Quiet.mark { name: kindName r.x.kind, detail: "", hue: kindHue r.x.kind, on: r.x.on, onToggle: SensorToggle r.ix }
+          , Quiet.select { value: r.x.unit, options: unitsOf r.x.kind, label: "unit", onChange: SensorSet r.ix FUnit }
+          , num 4 r.x.every "seconds between readings" FEvery
+          , Ledger.values
+              [ Quiet.labelled "low" [ num 4 r.x.low "low alarm" FLow ]
+              , Quiet.labelled "high" [ num 5 r.x.high "high alarm" FHigh ]
+              ]
+          , HH.span_
+              [ if bad r.x then Quiet.fault "low above high" else HH.text ""
+              , Quiet.tool { glyph: "✕", label: "remove this sensor", onClick: SensorRemove r.ix }
+              ]
+          ]
+      }
+    where
+    num w v label field = Quiet.number
+      { value: v, width: w, align: Quiet.End, label, onChange: SensorSet r.ix field, disabled: false }
+  bad x = case Int.fromString x.low, Int.fromString x.high of
+    Just lo, Just hi -> lo > hi
+    _, _ -> false
+
+kinds :: Array SensorKind
+kinds = [ Temperature, Humidity, Brightness ]
+
+kindName :: SensorKind -> String
+kindName = case _ of
+  Temperature -> "Temperature"
+  Humidity -> "Humidity"
+  Brightness -> "Light"
+
+kindKey :: SensorKind -> String
+kindKey = case _ of
+  Temperature -> "temperature"
+  Humidity -> "humidity"
+  Brightness -> "light"
+
+parseKind :: String -> Maybe SensorKind
+parseKind k = find (\x -> kindKey x == k) kinds
+
+kindHue :: SensorKind -> String
+kindHue k = "var(--demo-" <> kindKey k <> ")"
+
+unitsOf :: SensorKind -> Array String
+unitsOf = case _ of
+  Temperature -> [ "°C", "°F" ]
+  Humidity -> [ "%" ]
+  Brightness -> [ "lux" ]
+
+defaultUnit :: SensorKind -> String
+defaultUnit k = fromMaybe "" (Array.head (unitsOf k))
+
+-- | A new sensor goes after its station's last one, so it lands in its group.
+insertAfterStation :: String -> Sensor -> Array Sensor -> Array Sensor
+insertAfterStation station x xs = case Array.findLastIndex (\y -> y.station == station) xs of
+  Just ix -> fromMaybe (Array.snoc xs x) (Array.insertAt (ix + 1) x xs)
+  Nothing -> Array.snoc xs x
+
+setField :: SensorField -> String -> Sensor -> Sensor
+setField field v x = case field of
+  FUnit -> x { unit = v }
+  FEvery -> x { every = v }
+  FLow -> x { low = v }
+  FHigh -> x { high = v }
 
 -- | The modal lives at the page root (it is fixed-position chrome), driven by
 -- | the same controlled state as everything else.
@@ -1194,6 +1340,31 @@ panelCode =
 Panel.panel { title: "SOURCES", sub: Just "3 active" }
   [ HH.p_ [ HH.text "any caller content" ] ]"""
 
+quietLedgerCode :: String
+quietLedgerCode =
+  """-- One grid for every row; the page owns every value.
+Ledger.ledger { columns, minWidth: "620px" } (concatMap stationRows stations)
+
+sensorRow name n r = Ledger.Entry
+  { first: n == 0, off: not r.on
+  , cells:
+      [ if n == 0 then Ledger.name { name, sub: "" } else HH.text ""
+      , Quiet.mark { name: kindName r.kind, detail: "", hue: "var(--demo-light)"
+                   , on: r.on, onToggle: SensorToggle r.ix }     -- the mark is the switch
+      , Quiet.select { value: r.unit, options: unitsOf r.kind
+                     , label: "unit", onChange: SensorSet r.ix FUnit }
+      , Quiet.number { value: r.every, width: 4, align: Quiet.End
+                     , label: "seconds", onChange: SensorSet r.ix FEvery, disabled: false }
+      , Ledger.values [ Quiet.labelled "low" [ low ], Quiet.labelled "high" [ high ] ]
+      , HH.span_ [ if bad r then Quiet.fault "low above high" else HH.text ""
+                 , Quiet.tool { glyph: "✕", label: "remove", onClick: SensorRemove r.ix } ]
+      ] }
+
+-- "+ sensor": a faint line that opens a choice and keeps no selection.
+Ledger.Add { from: 1, content: Quiet.choose
+  { prompt: "+ sensor", label: "add a sensor", groups, onChoose: SensorAdd name } }
+"""
+
 fieldCode :: String
 fieldCode =
   """Field.field { label: "Threshold", hint: Just "0–100" }
@@ -1225,6 +1396,11 @@ globalCss :: String
 globalCss =
   """
 * { box-sizing: border-box; }
+:root { --demo-temperature: #c05a12; --demo-humidity: #13807b; --demo-light: #5a55b8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="hylograph"]) { --demo-temperature: #f0955a; --demo-humidity: #4cc5bd; --demo-light: #a9a4f2; }
+}
+[data-theme="dark"] { --demo-temperature: #f0955a; --demo-humidity: #4cc5bd; --demo-light: #a9a4f2; }
 body { margin: 0; background: var(--hw-page-bg); color: var(--hw-ink);
   font-family: var(--hw-font, system-ui,-apple-system,'Segoe UI',sans-serif); -webkit-font-smoothing: antialiased;
   transition: background 200ms ease, color 200ms ease; }

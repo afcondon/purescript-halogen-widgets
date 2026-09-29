@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "bundle": "spago bundle -p halogen-widgets-showcase",
+    "bundle": "cp ../css/halogen-widgets.css . && spago bundle -p halogen-widgets-showcase",
     "serve": "python3 -m http.server 3019"
   }
 }

@@ -151,6 +151,31 @@ internal core and differ only in collapsed rendering. This honours "full
 component for the interactive part"
 without pretending the type system has a children channel it doesn't.
 
+## When a widget is a view function
+
+Some controls are **pure view functions** rather than components:
+`Halogen.Widgets.Quiet` (quiet number/text/select fields, the mark, row tools)
+and `Halogen.Widgets.Ledger` (the grid they sit on). The test is two-fold:
+
+- **It is stateless.** It has no ephemeral state worth owning: no open
+  dropdown, no drag, no debounce. A native `<input>` or `<select>` already
+  holds whatever is transient (the caret, the half-typed text).
+- **It appears in large numbers.** A ledger has hundreds of editable cells.
+  One component per cell would mean a slot, a slot key and a query algebra per
+  cell, all to wrap an `<input>`.
+
+A view function is `forall w i. Config i -> HH.HTML w i`, polymorphic in the
+caller's action, like the chrome functions. It **still obeys rule 1**: the
+parent passes every value in (`value`, `on`), and the control emits an intent
+(`onChange`, `onToggle`, `onClick`) typed in the parent's own action, which the
+parent may honour or ignore. Text controls hand back the text typed, not a
+parsed value, so that a half-typed number can be "no edit" in the parent rather
+than a zero. Rules 2 to 4 do not apply, because there is no component to
+resync, no behaviour to absorb, and no slot to wire.
+
+If such a control later needs a behaviour of its own (a debounce, a drag), it
+graduates to a leaf component; it does not grow hidden state as a function.
+
 ## Checklist for a new widget
 
 - [ ] `Input` is a record: controlled value(s) + config. `defaultInput` provided.

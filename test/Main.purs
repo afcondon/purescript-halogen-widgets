@@ -27,6 +27,8 @@ import Halogen.Widgets.Panel as Panel
 import Halogen.Widgets.Field as Field
 import Halogen.Widgets.Toast as Toast
 import Halogen.Widgets.Motion (Motion(..), defaultMotion)
+import Halogen.Widgets.Quiet as Quiet
+import Halogen.Widgets.Ledger as Ledger
 
 seen :: forall a. a -> Boolean
 seen _ = true
@@ -54,6 +56,22 @@ checks =
     -- Accordion body reveal — a chrome function, on each orientation's re-export.
     && seen (VAccordion.body { open: true, motion: NoMotion } [] :: HH.HTML Unit Unit)
     && seen (HAccordion.body { open: false, motion: defaultMotion } [] :: HH.HTML Unit Unit)
+    -- Quiet controls and the ledger: view functions, polymorphic in the action.
+    && seen (Quiet.number quietInput :: HH.HTML Unit Unit)
+    && seen (Quiet.text quietInput { align = Quiet.Start } :: HH.HTML Unit Unit)
+    && seen (Quiet.select { value: "a", options: [ "a", "b" ], label: "l", onChange: const unit } :: HH.HTML Unit Unit)
+    && seen (Quiet.choose { prompt: "+ add", groups: [ { name: "g", options: [ { value: "v", label: "V" } ] } ], label: "l", onChoose: const unit } :: HH.HTML Unit Unit)
+    && seen (Quiet.toggle { on: true, text: "on", label: "l", onToggle: unit } :: HH.HTML Unit Unit)
+    && seen (Quiet.mark { name: "MIDI", detail: "", hue: "var(--x)", on: true, onToggle: unit } :: HH.HTML Unit Unit)
+    && seen (Quiet.labelled "slots" [ Quiet.note "C2" ] :: HH.HTML Unit Unit)
+    && seen (Quiet.fault "no port" :: HH.HTML Unit Unit)
+    && seen (Quiet.tool { glyph: "✕", label: "remove", onClick: unit } :: HH.HTML Unit Unit)
+    && seen (Quiet.key [ { name: "MIDI", hue: "red", count: 2 } ] :: HH.HTML Unit Unit)
+    && seen (Ledger.ledger { columns: [ { head: "Name", track: "8em", align: Quiet.Start } ], minWidth: "400px" }
+               [ Ledger.Heading (HH.text "g")
+               , Ledger.Entry { first: true, off: false, cells: [ Ledger.name { name: "n", sub: "" } ] }
+               , Ledger.Add { from: 0, content: Ledger.values [] }
+               ] :: HH.HTML Unit Unit)
     -- defaultInput on-ramps.
     && (Toggle.defaultInput false).value == false
     && (Stepper.defaultInput 5).value == 5
@@ -68,6 +86,9 @@ checks =
     && (Compare.defaultInput (HH.text "a") (HH.text "b")).position == 50.0
     && (VAccordion.defaultInput "GENERATE").open == true
     && (HAccordion.defaultInput "GENERATE").open == true
+
+quietInput :: Quiet.InputConfig Unit
+quietInput = { value: "1", width: 2, align: Quiet.End, label: "l", onChange: const unit, disabled: false }
 
 main :: Effect Unit
 main = case checks of _ -> pure unit

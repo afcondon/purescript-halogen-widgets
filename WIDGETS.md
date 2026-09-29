@@ -40,6 +40,37 @@ rule 5). Each is `forall w i. Config -> … -> HH.HTML w i`.
 | `Toast` | `ToastConfig i -> HTML` | Banner coloured by `Variant (Info\|Success\|Warning\|Error)`; optional `onDismiss :: Maybe i`. The atom a future stateful toast-host would render. |
 | `VAccordion.body` / `HAccordion.body` | `{ open, motion } -> Array HTML -> HTML` | Optional eased wrapper for the parent-rendered accordion body. Keeps the content **mounted** and slides its height (CSS grid-rows `0fr`↔`1fr`) instead of unmounting on collapse. Use when you want the reveal animated; the plain `if open then [body] else []` (unmount) is still right for a body of expensive live children. |
 
+## Quiet forms (view functions)
+
+Tufte-style controls and the grid they sit on. View functions rather than
+components, because a ledger holds hundreds of cells (see CONTRACT.md, "When a
+widget is a view function"); each is `forall w i. … -> HH.HTML w i`, with the
+parent owning every value. **They need the stylesheet**: the hover and focus
+reveals are `hw-quiet-*` / `hw-ledger-*` rules in `css/halogen-widgets.css`,
+with light and dark values. Labels, kinds and faults use `--hw-mono` if the page
+defines it; the new `--hw-faint` token is the hover hairline and the off state.
+
+The rules they carry: **no boxes** (a value is text until touched: dotted
+hairline on hover, solid accent line on focus, caret on hover only); **name
+every number** (column heads once, `labelled` values beside their label);
+**one grid for all rows**; **a group's name sits on its first row**; **show only
+the exception** (`fault`, never "ok"); **tools appear where the pointer is**;
+**the category is the row's mark, and the mark is the switch**; **space
+separates, rules don't** (one hairline under the heads).
+
+| Module | Function | Notes |
+|---|---|---|
+| `Quiet` | `number`, `text :: InputConfig i -> HTML` | `{ value :: String, width :: Int, align :: Align, label, onChange :: String -> i, disabled }`. Text in, text out: the parent parses. `width` is in characters (the control adds half a `ch`). `label` is the aria-label and tooltip. `number` adds tabular figures. |
+| `Quiet` | `select :: SelectConfig i -> HTML` | Native `<select>`, box removed, caret on hover/focus. A `value` missing from `options` is kept and shown, not replaced. |
+| `Quiet` | `choose :: ChooseConfig i -> HTML` | A faint "+ add" line that opens a (grouped) choice and raises `onChoose value`. Keeps no selection: it reads as its prompt again after every choice. |
+| `Quiet` | `toggle :: ToggleConfig i -> HTML` | A word that is on or off (greyed when off), `aria-pressed`. |
+| `Quiet` | `mark :: MarkConfig i -> HTML` | The row's category: 4px swatch, name in `hue`, `detail` in muted mono. Also the row's switch: filled is on, outline is off; click raises `onToggle`. `hue` is any CSS colour, so the library knows nothing of the categories. |
+| `Quiet` | `labelled :: String -> Array HTML -> HTML`, `note`, `fault` | A small uppercase label with its values (never wrapped apart); a muted aside (a note name); the danger-coloured status text. |
+| `Quiet` | `tool :: ToolConfig i -> HTML` | A row tool (✕, ▷), invisible until its ledger row is hovered or it has keyboard focus; always visible on devices that cannot hover. Outside a ledger, put `hw-quiet-host` on the element whose hover should reveal it. |
+| `Quiet` | `key :: Array KeyEntry -> HTML` | The key to the marks: each category in its hue, with its count. |
+| `Ledger` | `ledger :: LedgerConfig -> Array (Row w i) -> HTML` | `{ columns :: Array { head, track, align }, minWidth }`. Rows are `display: contents`, so every cell is on one grid; an empty `head` still carries the rule. Scrolls sideways inside itself below `minWidth`. `Row` is `Heading html` (full width; leading headings sit above the column heads), `Entry { first, off, cells }`, or `Add { from, content }` (from a 0-based column to the end). |
+| `Ledger` | `values`, `name` | The varying column's wrapping group of labelled values; a row's name with an optional small line beneath. |
+
 ### Motion — opt-in easing
 
 `Halogen.Widgets.Motion` carries the `Motion` / `Easing` types, `defaultMotion`
