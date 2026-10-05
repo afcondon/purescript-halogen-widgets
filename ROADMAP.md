@@ -7,6 +7,19 @@ the ship-it-and-dogfood goal, **[effort]** rough size, **→** dependencies.
 
 ## Recently landed (post-v0.1)
 
+- **`Drawer` (0.5.0).** An edge-anchored slide-out drawer after Ableton Live's
+  Browser: `Edge` (`Left`/`Right`), `Mode` (`Push`/`Overlay`), a 20 px rail
+  whose arrow points the way the drawer will move, a rotated label when
+  closed, and an optional resize grip (drag or arrow keys) clamped to
+  `minWidth`/`maxWidth`, reporting `Resizing` live and `Resized` once to
+  persist. Split along rule 5: the **edge** is the leaf component (it owns
+  the drag and the debounce), and `Drawer.frame` lays out the parent's own
+  body and main content. Opt-in `motion` eases the width; the stylesheet
+  stops it for reduced motion and during a drag (`:has()`). The smoke test
+  now also checks behaviour by value (toggle requests, clamping, drag
+  signs) and fails `spago test` if one does not hold. First consumers:
+  Triggerfish's machine pages and Conspicillum, as the preset browser.
+
 - **Quiet forms: `Quiet` and `Ledger` (0.4.0).** Tufte-style controls (number,
   text, select, choose, toggle, the mark-as-switch, labelled values, fault,
   hover-revealed row tools, the key) and a grid ledger that lines up rows of

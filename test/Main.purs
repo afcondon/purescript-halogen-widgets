@@ -1,13 +1,18 @@
 -- | A type-level smoke test: every widget's public surface is referenced with
 -- | its full exported types, so a signature or export regression fails the
--- | build. Compilation *is* the test — `main` does no runtime work, and the
--- | target pulls in no extra dependencies.
+-- | build. Compilation *is* the test for the surface.
+-- |
+-- | Where a widget's decisions are pure functions (the Drawer's toggle request
+-- | and width clamping), `behaviour` also checks them by value, and `main`
+-- | throws if any fails, so `spago test` exits non-zero.
 module Test.Main where
 
 import Prelude
 
+import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
+import Effect.Exception (throw)
 import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
@@ -29,6 +34,7 @@ import Halogen.Widgets.Toast as Toast
 import Halogen.Widgets.Motion (Motion(..), defaultMotion)
 import Halogen.Widgets.Quiet as Quiet
 import Halogen.Widgets.Ledger as Ledger
+import Halogen.Widgets.Drawer as Drawer
 
 seen :: forall a. a -> Boolean
 seen _ = true
@@ -48,6 +54,7 @@ checks =
     && seen (Segmented.component :: H.Component Segmented.Query Segmented.Input Segmented.Output Aff)
     && seen (Select.component :: H.Component Select.Query Select.Input Select.Output Aff)
     && seen (Compare.component :: H.Component Compare.Query Compare.Input Compare.Output Aff)
+    && seen (Drawer.component :: H.Component Drawer.Query Drawer.Input Drawer.Output Aff)
     -- Chrome functions, applied to concrete args.
     && seen (Modal.modal { open: false, title: "t", onClose: unit } [] :: HH.HTML Unit Unit)
     && seen (Panel.panel { title: "t", sub: Nothing } [] :: HH.HTML Unit Unit)
@@ -72,6 +79,11 @@ checks =
                , Ledger.Entry { first: true, off: false, cells: [ Ledger.name { name: "n", sub: "" } ] }
                , Ledger.Add { from: 0, content: Ledger.values [] }
                ] :: HH.HTML Unit Unit)
+    -- The drawer's layout chrome, polymorphic in the caller's action.
+    && seen (Drawer.frame drawer { handle: HH.text "edge", body: [], main: [] } :: HH.HTML Unit Unit)
+    && seen (Drawer.clampWidth :: Drawer.Input -> Number -> Number)
+    && seen (Drawer.dragWidth :: Drawer.Input -> Number -> Number -> Number)
+    && seen (Drawer.toggled :: Drawer.Input -> Maybe Drawer.Output)
     -- defaultInput on-ramps.
     && (Toggle.defaultInput false).value == false
     && (Stepper.defaultInput 5).value == 5
@@ -86,9 +98,61 @@ checks =
     && (Compare.defaultInput (HH.text "a") (HH.text "b")).position == 50.0
     && (VAccordion.defaultInput "GENERATE").open == true
     && (HAccordion.defaultInput "GENERATE").open == true
+    && (Drawer.defaultInput "Browser").edge == Drawer.Left
+    && (Drawer.defaultInput "Browser").mode == Drawer.Push
+
+-- | The drawer used by the checks: resizable, 160..480, 260 wide.
+drawer :: Drawer.Input
+drawer = (Drawer.defaultInput "Browser") { resizable = true }
+
+-- | Behaviour checks, by value. Each entry is a name and whether it held.
+behaviour :: Array { name :: String, ok :: Boolean }
+behaviour =
+  -- The open/close output: a press asks for the opposite of `open`.
+  [ { name: "toggle from open asks to close"
+    , ok: Drawer.toggled drawer { open = true } == Just (Drawer.Toggled false) }
+  , { name: "toggle from closed asks to open"
+    , ok: Drawer.toggled drawer { open = false } == Just (Drawer.Toggled true) }
+  , { name: "disabled drawer asks for nothing"
+    , ok: Drawer.toggled drawer { disabled = true } == Nothing }
+  -- The controlled contract: the request is computed from the parent's value
+  -- every time. A parent that refuses the request (keeps open = true) gets the
+  -- same request again; one that honours it gets the reverse next time.
+  , { name: "a refused request is asked again"
+    , ok: let refused = drawer { open = true }
+          in Drawer.toggled refused == Drawer.toggled refused }
+  , { name: "an honoured request reverses"
+    , ok: case Drawer.toggled drawer { open = true } of
+        Just (Drawer.Toggled o) -> Drawer.toggled drawer { open = o } == Just (Drawer.Toggled true)
+        _ -> false }
+  , { name: "the request does not touch the input"
+    , ok: (drawer { open = true }).open == true }
+  -- Width clamping.
+  , { name: "width inside the bounds is kept"
+    , ok: Drawer.clampWidth drawer 300.0 == 300.0 }
+  , { name: "width below min clamps to min"
+    , ok: Drawer.clampWidth drawer 20.0 == 160.0 }
+  , { name: "width above max clamps to max"
+    , ok: Drawer.clampWidth drawer 9000.0 == 480.0 }
+  , { name: "max below min reads as min"
+    , ok: Drawer.clampWidth drawer { minWidth = 200.0, maxWidth = 100.0 } 150.0 == 200.0 }
+  -- Drags: signed by edge, then clamped.
+  , { name: "left drawer grows as the pointer moves right"
+    , ok: Drawer.dragWidth drawer 260.0 100.0 == 360.0 }
+  , { name: "right drawer grows as the pointer moves left"
+    , ok: Drawer.dragWidth drawer { edge = Drawer.Right } 260.0 (-100.0) == 360.0 }
+  , { name: "right drawer shrinks as the pointer moves right"
+    , ok: Drawer.dragWidth drawer { edge = Drawer.Right } 260.0 50.0 == 210.0 }
+  , { name: "a drag past max stops at max"
+    , ok: Drawer.dragWidth drawer 260.0 1000.0 == 480.0 }
+  , { name: "a drag past min stops at min"
+    , ok: Drawer.dragWidth drawer 260.0 (-1000.0) == 160.0 }
+  ]
 
 quietInput :: Quiet.InputConfig Unit
 quietInput = { value: "1", width: 2, align: Quiet.End, label: "l", onChange: const unit, disabled: false }
 
 main :: Effect Unit
-main = case checks of _ -> pure unit
+main = do
+  unless checks (throw "smoke checks failed")
+  for_ behaviour \b -> unless b.ok (throw ("behaviour check failed: " <> b.name))

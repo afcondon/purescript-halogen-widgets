@@ -49,6 +49,7 @@ import Halogen.Widgets.Field as Field
 import Halogen.Widgets.Toast as Toast
 import Halogen.Widgets.Quiet as Quiet
 import Halogen.Widgets.Ledger as Ledger
+import Halogen.Widgets.Drawer as Drawer
 
 import Sigil
   ( parseToRenderType
@@ -113,6 +114,7 @@ type Slots =
   , selectCascade :: Select.Slot Unit
   , multiSelect :: MultiSelect.Slot Unit
   , compare :: Compare.Slot Unit
+  , drawer :: Drawer.Slot String
   , themeSwitch :: Segmented.Slot Unit
   )
 
@@ -155,6 +157,9 @@ _multiSelect = Proxy
 _compare :: Proxy "compare"
 _compare = Proxy
 
+_drawer :: Proxy "drawer"
+_drawer = Proxy
+
 _themeSwitch :: Proxy "themeSwitch"
 _themeSwitch = Proxy
 
@@ -179,6 +184,13 @@ type State =
   , modalOpen :: Boolean
   , toastShown :: Boolean
   , sensors :: Array Sensor
+  -- Drawer demos. The page owns open and width; `browserSaved` is the width
+  -- a real app would persist (the last `Resized`, not every `Resizing`).
+  , browserOpen :: Boolean
+  , browserWidth :: Number
+  , browserSaved :: Number
+  , preset :: String
+  , inspectorOpen :: Boolean
   }
 
 -- | One row of the quiet-ledger demo: a sensor at a weather station. Every
@@ -216,6 +228,11 @@ initialState =
   , palettes: [ "diatonic", "borrowed" ]
   , modalOpen: false
   , toastShown: false
+  , browserOpen: true
+  , browserWidth: 220.0
+  , browserSaved: 220.0
+  , preset: "Euclid 5/8"
+  , inspectorOpen: false
   , sensors:
       [ sensor "North field" Temperature "°C" "60" "-5" "35"
       , sensor "North field" Humidity "%" "300" "20" "95"
@@ -246,6 +263,9 @@ data Action
   | CloseModal
   | ShowToast
   | HideToast
+  | BrowserOutput Drawer.Output
+  | PickPreset String
+  | InspectorOutput Drawer.Output
   | SensorToggle Int
   | SensorRemove Int
   | SensorAdd String String
@@ -319,6 +339,15 @@ handleAction = case _ of
   CloseModal -> H.modify_ _ { modalOpen = false }
   ShowToast -> H.modify_ _ { toastShown = true }
   HideToast -> H.modify_ _ { toastShown = false }
+  -- The drawer's outputs are requests; this page honours every one.
+  BrowserOutput out -> case out of
+    Drawer.Toggled o -> H.modify_ _ { browserOpen = o }
+    Drawer.Resizing w -> H.modify_ _ { browserWidth = w }
+    Drawer.Resized w -> H.modify_ _ { browserWidth = w, browserSaved = w }
+  PickPreset p -> H.modify_ _ { preset = p }
+  InspectorOutput out -> case out of
+    Drawer.Toggled o -> H.modify_ _ { inspectorOpen = o }
+    _ -> pure unit
   SensorToggle ix -> H.modify_ \s -> s { sensors = Array.mapWithIndex (\j x -> if j == ix then x { on = not x.on } else x) s.sensors }
   SensorRemove ix -> H.modify_ \s -> s { sensors = fromMaybe s.sensors (Array.deleteAt ix s.sensors) }
   SensorAdd station k -> for_ (parseKind k) \kind ->
@@ -383,6 +412,8 @@ navColumn =
     , navLink "select-cascade" "Select · submenus"
     , navLink "multiselect" "MultiSelect"
     , navLink "compare" "Compare"
+    , navLink "drawer" "Drawer"
+    , navLink "drawer-overlay" "Drawer · overlay"
     , HH.div [ cls "nav-group" ] [ HH.text "Chrome functions" ]
     , navLink "panel" "Panel"
     , navLink "field" "Field"
@@ -842,6 +873,16 @@ stories st =
           (\(Compare.Moved p) -> CompareMoved p)
       )
   , story st
+      { anchor: "drawer", title: "Drawer", tier: "leaf edge + chrome frame · controlled"
+      , blurb: "An edge-anchored slide-out drawer, after Ableton Live's Browser. Left edge, **Push** mode: the machine page reflows as the browser opens. The rail's arrow points the way the drawer will move; drag the rail below it (or focus it and use ← →) to resize. The page owns `open` and `width`, feeds every `Resizing` back for a live resize, and would persist only the `Resized` at the end. The component is the edge; `frame` lays out the page's own body and content, so the preset list stays live."
+      , code: drawerCode }
+      ( drawerDemo st )
+  , story st
+      { anchor: "drawer-overlay", title: "Drawer · overlay", tier: "leaf edge + chrome frame · controlled"
+      , blurb: "The same widget on the right edge in **Overlay** mode: the drawer lies over the content, which keeps its width. Closed, it is a thin rail with a rotated label; the whole rail is the button. Not resizable here, so the open rail is plain. A keyboard shortcut would be the page's to bind: it owns the state."
+      , code: drawerOverlayCode }
+      ( drawerOverlayDemo st )
+  , story st
       { anchor: "panel", title: "Panel", tier: "chrome function"
       , blurb: "A titled surface wrapping caller content. A render function, polymorphic in your action — so the body threads straight through."
       , code: panelCode }
@@ -982,6 +1023,97 @@ setField field v x = case field of
   FLow -> x { low = v }
   FHigh -> x { high = v }
 
+-- | The Drawer demo: a preset browser beside a machine page (Left, Push,
+-- | resizable, eased).
+drawerDemo :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
+drawerDemo st =
+  let
+    d = (Drawer.defaultInput "Browser")
+      { open = st.browserOpen
+      , width = st.browserWidth
+      , resizable = true
+      , minWidth = 150.0
+      , maxWidth = 360.0
+      , panelId = "showcase-browser"
+      , motion = defaultMotion
+      }
+  in
+    demoBox
+      [ Drawer.frame d
+          { handle: HH.slot _drawer "browser" Drawer.component d BrowserOutput
+          , body: [ presetList st.preset ]
+          , main:
+              [ HH.div [ sty "padding:16px 20px;font:13px/1.6 system-ui;color:var(--hw-ink,#2b2b2b)" ]
+                  [ HH.div [ sty "font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--hw-ink-soft,#7a7a7a)" ]
+                      [ HH.text "Odonus · machine page" ]
+                  , HH.div [ sty "font-size:20px;font-weight:600;margin:4px 0 10px" ] [ HH.text st.preset ]
+                  , HH.div [ sty "display:grid;grid-template-columns:repeat(8,1fr);gap:4px;max-width:420px" ]
+                      (map (\on -> HH.div [ sty $ "height:22px;border:1px solid var(--hw-line,rgba(0,0,0,.09));background:" <> (if on then "var(--hw-accent,#2f5fb0)" else "transparent") ] [])
+                        [ true, false, true, true, false, true, true, false ])
+                  , HH.div [ sty "margin-top:12px;font:11px 'SF Mono',Menlo,monospace;color:var(--hw-ink-soft,#7a7a7a)" ]
+                      [ HH.text ("open: " <> show st.browserOpen <> " · width: " <> show (Int.round st.browserWidth) <> "px · persisted: " <> show (Int.round st.browserSaved) <> "px") ]
+                  ]
+              ]
+          }
+      ]
+
+-- | The Drawer · overlay demo: an inspector on the right, over the content.
+drawerOverlayDemo :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
+drawerOverlayDemo st =
+  let
+    d = (Drawer.defaultInput "Inspector")
+      { open = st.inspectorOpen
+      , edge = Drawer.Right
+      , mode = Drawer.Overlay
+      , width = 240.0
+      , panelId = "showcase-inspector"
+      , motion = defaultMotion
+      }
+  in
+    demoBox
+      [ Drawer.frame d
+          { handle: HH.slot _drawer "inspector" Drawer.component d InspectorOutput
+          , body:
+              [ HH.div [ sty "padding:14px 16px;font:12.5px/1.7 system-ui;color:var(--hw-ink,#2b2b2b)" ]
+                  [ HH.div [ sty "font-weight:600;margin-bottom:6px" ] [ HH.text "Clip" ]
+                  , HH.div_ [ HH.text "Length · 4 bars" ]
+                  , HH.div_ [ HH.text "Key · D phrygian" ]
+                  , HH.div_ [ HH.text "Notes · 23" ]
+                  ]
+              ]
+          , main:
+              [ HH.div [ sty "padding:16px 20px;font:13px/1.6 system-ui;color:var(--hw-ink-soft,#7a7a7a)" ]
+                  [ HH.text "The content keeps its width: the inspector slides over it from the right. Press the rail to open it." ]
+              ]
+          }
+      ]
+
+-- | The demos' frame: a fixed-height box, because a drawer fills its container.
+demoBox :: forall w i. Array (HH.HTML w i) -> HH.HTML w i
+demoBox =
+  HH.div [ sty "width:100%;height:230px;border:1px solid var(--hw-line,rgba(0,0,0,.09));background:var(--hw-surface,#fff)" ]
+
+-- | The browser's body: live, clickable, typed in the page's own action.
+presetList :: forall w. String -> HH.HTML w Action
+presetList current =
+  HH.div [ sty "padding:10px 0;font:12.5px/1.5 system-ui" ]
+    ( [ HH.div [ sty "padding:0 14px 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--hw-ink-soft,#7a7a7a)" ]
+          [ HH.text "Presets" ]
+      ]
+        <> map item [ "Euclid 5/8", "Euclid 3/8", "Tresillo", "Four on the floor", "Clave 3-2", "Gahu", "Bossa" ]
+    )
+  where
+  item name =
+    HH.button
+      [ HP.type_ HP.ButtonButton
+      , HE.onClick \_ -> PickPreset name
+      , sty $ "display:block;width:100%;text-align:left;border:0;padding:3px 14px;font:inherit;cursor:pointer;white-space:nowrap;"
+          <> if name == current
+            then "background:var(--hw-accent,#2f5fb0);color:#fff"
+            else "background:none;color:var(--hw-ink,#2b2b2b)"
+      ]
+      [ HH.text name ]
+
 -- | The modal lives at the page root (it is fixed-position chrome), driven by
 -- | the same controlled state as everything else.
 modalLayer :: forall m. State -> H.ComponentHTML Action Slots m
@@ -1107,6 +1239,21 @@ allContracts =
         [ TypeSyn "Input" "Record ( position :: Number, before :: PlainHTML, after :: PlainHTML, height :: String, beforeLabel :: Maybe String, afterLabel :: Maybe String, disabled :: Boolean )"
         , DataDecl "Output" [ { name: "Moved", args: [ "Number" ] } ]
         , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        ]
+    }
+  , { slug: "drawer"
+    , fragments:
+        [ TypeSyn "Input" "Record ( open :: Boolean, width :: Number, edge :: Edge, mode :: Mode, resizable :: Boolean, minWidth :: Number, maxWidth :: Number, railWidth :: Number, label :: Maybe String, showLabel :: String, hideLabel :: String, panelId :: String, debounce :: Milliseconds, motion :: Motion, disabled :: Boolean )"
+        , DataDecl "Output" [ { name: "Toggled", args: [ "Boolean" ] }, { name: "Resizing", args: [ "Number" ] }, { name: "Resized", args: [ "Number" ] } ]
+        , Signature "component" "forall m. MonadAff m => Component Query Input Output m"
+        , Signature "frame" "forall w i. Input -> Parts w i -> HTML w i"
+        ]
+    }
+  , { slug: "drawer-overlay"
+    , fragments:
+        [ DataDecl "Edge" [ { name: "Left", args: [] }, { name: "Right", args: [] } ]
+        , DataDecl "Mode" [ { name: "Push", args: [] }, { name: "Overlay", args: [] } ]
+        , TypeSyn "Parts" "Record ( handle :: HTML w i, body :: Array (HTML w i), main :: Array (HTML w i) )"
         ]
     }
   , { slug: "panel"
@@ -1333,6 +1480,35 @@ HH.slot _compare unit Compare.component
     , beforeLabel = Just "Vanilla"
     , afterLabel = Just "Hylograph" }
   (\(Compare.Moved p) -> CompareMoved p)"""
+
+drawerCode :: String
+drawerCode =
+  """-- one Input, given to both the frame and the edge's slot
+let d = (Drawer.defaultInput "Browser")
+          { open = st.browserOpen, width = st.browserWidth
+          , resizable = true, motion = defaultMotion }
+in Drawer.frame d
+     { handle: HH.slot _drawer "browser" Drawer.component d BrowserOutput
+     , body: [ presetList st.preset ]     -- live, typed in YOUR action
+     , main: [ machinePage st ]
+     }
+
+-- every output is a request; honour it
+BrowserOutput out -> case out of
+  Drawer.Toggled o  -> H.modify_ _ { browserOpen = o }
+  Drawer.Resizing w -> H.modify_ _ { browserWidth = w }
+  Drawer.Resized w  -> do
+    H.modify_ _ { browserWidth = w }
+    persistWidth w                        -- only the settled width"""
+
+drawerOverlayCode :: String
+drawerOverlayCode =
+  """let d = (Drawer.defaultInput "Inspector")
+          { open = st.inspectorOpen
+          , edge = Drawer.Right, mode = Drawer.Overlay }
+in Drawer.frame d
+     { handle: HH.slot _drawer "inspector" Drawer.component d InspectorOutput
+     , body: [ inspector st ], main: [ content st ] }"""
 
 panelCode :: String
 panelCode =

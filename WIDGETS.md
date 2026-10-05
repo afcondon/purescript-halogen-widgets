@@ -25,6 +25,7 @@ Each exports `Input`, `Output(..)`, `Query(..)`, `Slot`, `component`,
 | `DoubleKnob` | `outer`, `inner :: Layer` | `OuterChanged` / `InnerChanged Number` | Concentric two-layer knob (Strymon / Chase Bliss). Each layer dragged independently; the tag says which. |
 | `SegmentedControl` | `active :: String` | `Selected String` | Tab/segment selector. Parent owns `active` **and renders the pane** — the control is only the selector. |
 | `Select` | `selected :: Maybe String` | `Selected String` | Single-select dropdown, optional `searchable` typeahead. `selected` is controlled; **`open`/`query`/`hovered` are ephemeral** interaction state the widget owns. Options may be **flat** (`defaultInput`), in **named groups** as an inline list (`groupedInput`), or the same groups as a **macOS-style fly-out menu** (`cascadingInput`, `cascade = true`) — hover a group to pop its leaves out to the side. All additive, one level deep; `selected` resolves across every shape and `Output`/`Slot` never change. |
+| `Drawer` | `open :: Boolean`, `width :: Number` | `Toggled Boolean` / `Resizing Number` / `Resized Number` | Edge-anchored slide-out drawer (Ableton's Browser). The **component is the drawer's edge**: a thin rail (`railWidth`, 20 px) whose arrow is a real `<button>` (`aria-expanded`, `aria-controls`, `showLabel`/`hideLabel` as its name) and points the way the drawer will move; closed, the whole rail is the button and carries the rotated `label`; open and `resizable`, the rest of the rail is a `role="separator"` grip (drag, or ←/→ 16 px, Home/End). Widths are clamped to `minWidth`/`maxWidth`; `Resizing` streams during a drag, `Resized` once at the end (persist that). Layout is the chrome function `Drawer.frame` (below). `Edge = Left \| Right`, `Mode = Push \| Overlay`. No hotkey inside: the parent binds any shortcut. |
 | `Compare` | `position :: Number` | `Moved Number` | Before/after comparison wipe (draggable divider). The two layers are **static `HH.PlainHTML`** in `Input` — comparing renderings, not interacting through them — which is what lets a divider-drag widget sit on the leaf contract. The widget owns the drag (document mousemove + `getBoundingClientRect`). |
 
 ## Chrome functions (action-polymorphic)
@@ -38,6 +39,7 @@ rule 5). Each is `forall w i. Config -> … -> HH.HTML w i`.
 | `Field` | `FieldConfig -> HTML -> HTML` | Labelled form row (label · control · optional hint). |
 | `Modal` | `ModalConfig i -> Array HTML -> HTML` | Overlay + centred panel; `onClose :: i` raised by backdrop or ×. Renders nothing when `open = false`. Backdrop and panel are siblings, so no `stopPropagation` needed. |
 | `Toast` | `ToastConfig i -> HTML` | Banner coloured by `Variant (Info\|Success\|Warning\|Error)`; optional `onDismiss :: Maybe i`. The atom a future stateful toast-host would render. |
+| `Drawer.frame` | `Input -> { handle, body, main } -> HTML` | The drawer's layout: the parent's `body` in the panel, `handle` (the parent's slot of `Drawer.component`, given the **same** `Input`) on its inner edge, `main` beside it (`Push`, content reflows) or under it (`Overlay`, content keeps its width less the rail). Fills its container's height. The body stays mounted while closed, at width 0 and `inert`; pass `if open then … else []` to unmount it. `clampWidth`, `dragWidth` and `toggled` are the pure rules the component uses, exported for restoring a stored width and for tests. |
 | `VAccordion.body` / `HAccordion.body` | `{ open, motion } -> Array HTML -> HTML` | Optional eased wrapper for the parent-rendered accordion body. Keeps the content **mounted** and slides its height (CSS grid-rows `0fr`↔`1fr`) instead of unmounting on collapse. Use when you want the reveal animated; the plain `if open then [body] else []` (unmount) is still right for a body of expensive live children. |
 
 ## Quiet forms (view functions)
@@ -76,7 +78,8 @@ separates, rules don't** (one hairline under the heads).
 `Halogen.Widgets.Motion` carries the `Motion` / `Easing` types, `defaultMotion`
 (180 ms ease-out), and `transition`. The kit's default is **`NoMotion`** — instant,
 no easing — and you opt a single widget in (the accordion chevron via the `motion`
-`Input` field; the body reveal via `Accordion.body`). `css/halogen-widgets.css` carries
+`Input` field; the body reveal via `Accordion.body`; the Drawer's width and arrow via
+its `motion` field). `css/halogen-widgets.css` carries
 a `prefers-reduced-motion` block that neutralises these transitions for users who
 asked the OS to reduce motion, even after they've been opted in.
 

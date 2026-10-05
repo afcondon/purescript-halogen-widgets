@@ -11,11 +11,12 @@ mode typesets each widget's contract via [Sigil](https://github.com/afcondon/pur
 The showcase (in `showcase/`) is the canonical artifact: it dogfoods the library
 it documents.
 
-> Status: **v0.1, contract-settled.** The leaf components
+> Status: **v0.5, contract-settled.** The leaf components
 > (`VAccordion` / `HAccordion`, `Toggle`, `Stepper`, `Slider`, `Knob`,
-> `DoubleKnob`, `SegmentedControl`, `Select`, `Compare`) and the chrome
-> functions (`Panel`, `Field`, `Modal`, `Toast`) — all compiling, all
-> on the one contract, with a type-level smoke test. The roster is the
+> `DoubleKnob`, `SegmentedControl`, `Select`, `MultiSelect`, `Compare`,
+> `Drawer`), the chrome functions (`Panel`, `Field`, `Modal`, `Toast`,
+> `Drawer.frame`) and the quiet-form view functions (`Quiet`, `Ledger`) —
+> all compiling, all on the one contract, with a smoke test (`spago test`). The roster is the
 > beginning, not the end; see [WIDGETS.md](./WIDGETS.md).
 
 Read **[CONTRACT.md](./CONTRACT.md)** first — it is the actual product — then

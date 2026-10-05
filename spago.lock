@@ -62,7 +62,9 @@
           ]
         },
         "test": {
-          "dependencies": []
+          "dependencies": [
+            "exceptions"
+          ]
         }
       },
       "halogen-widgets-showcase": {

@@ -151,6 +151,11 @@ internal core and differ only in collapsed rendering. This honours "full
 component for the interactive part"
 without pretending the type system has a children channel it doesn't.
 
+`Drawer` is the same split with a layout around it: the **component is the
+drawer's edge** (the arrow and the resize grip, which owns a drag), and
+`Drawer.frame` is the thin chrome helper that places the parent's body, that
+slotted edge (passed in as `handle`) and the parent's main content.
+
 ## When a widget is a view function
 
 Some controls are **pure view functions** rather than components:
