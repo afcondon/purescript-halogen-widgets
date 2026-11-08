@@ -34,6 +34,7 @@ import Halogen.Widgets.Toast as Toast
 import Halogen.Widgets.Motion (Motion(..), defaultMotion)
 import Halogen.Widgets.Quiet as Quiet
 import Halogen.Widgets.Ledger as Ledger
+import Halogen.Widgets.Statement as Statement
 import Halogen.Widgets.Drawer as Drawer
 
 seen :: forall a. a -> Boolean
@@ -72,6 +73,10 @@ checks =
     && seen (Quiet.mark { name: "MIDI", detail: "", hue: "var(--x)", on: true, onToggle: unit } :: HH.HTML Unit Unit)
     && seen (Quiet.labelled "slots" [ Quiet.note "C2" ] :: HH.HTML Unit Unit)
     && seen (Quiet.fault "no port" :: HH.HTML Unit Unit)
+    && seen (Statement.statement Statement.defaultStatement
+               { sentences = [ [ HH.text "Playing at ", Statement.reading { value: "107 bpm", label: "tempo", alarm: false } ] ]
+               , warnings = [ Quiet.fault "no clock" ]
+               } :: HH.HTML Unit Unit)
     && seen (Quiet.tool { glyph: "✕", label: "remove", onClick: unit } :: HH.HTML Unit Unit)
     && seen (Quiet.key [ { name: "MIDI", hue: "red", count: 2 } ] :: HH.HTML Unit Unit)
     && seen (Ledger.ledger { columns: [ { head: "Name", track: "8em", align: Quiet.Start } ], minWidth: "400px" }

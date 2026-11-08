@@ -246,6 +246,38 @@
 .hw-quiet-key__swatch { width: 4px; height: 12px; background: var(--hw-mark, currentColor); }
 .hw-quiet-key__count { font: 400 11px var(--hw-mono, 'SF Mono', Menlo, monospace); color: var(--hw-ink-soft, #7a7a7a); }
 
+/* ── The statement ──
+   The regions are named grid areas, so a page restyles them without
+   rearranging them. Margins become rows, in reading order, when narrow. */
+.hw-statement {
+  display: grid;
+  grid-template-columns: auto minmax(0, 40em) auto;
+  grid-template-areas:
+    "gauge say    report"
+    "gauge detail report"
+    "gauge warn   report";
+  justify-content: start;
+}
+/* Space on the margins, not as a column gap: an empty margin is not drawn,
+   and a gap would still push the sentence over. */
+.hw-statement-gauge  { grid-area: gauge; align-self: center; padding-right: 24px; }
+.hw-statement-say    { grid-area: say; }
+.hw-statement-detail { grid-area: detail; }
+.hw-statement-warn   { grid-area: warn; }
+.hw-statement-report { grid-area: report; align-self: center; padding-left: 24px; }
+.hw-statement-line { margin: 0 0 .5em; line-height: 1.55; color: var(--hw-ink, #2b2b2b); }
+.hw-statement-line:last-child { margin-bottom: 0; }
+.hw-statement-reading { font-weight: 600; font-variant-numeric: tabular-nums; }
+.hw-statement-reading.is-alarm { color: var(--hw-danger, #b0492f); }
+@media (max-width: 760px) {
+  .hw-statement {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "gauge" "say" "detail" "warn" "report";
+    gap: 12px 0;
+  }
+  .hw-statement-gauge, .hw-statement-report { padding: 0; }
+}
+
 /* ── The ledger ── */
 .hw-ledger-scroll { overflow-x: auto; max-width: 100%; }
 .hw-ledger {
